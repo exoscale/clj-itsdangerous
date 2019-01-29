@@ -7,7 +7,7 @@ A Clojure library designed to sign/unsign [itsdangerous][] payloads.
 ## Usage
 
 ```clj
-[exoscale/itsdangerous "0.1.0-SNAPSHOT"]
+[exoscale/itsdangerous "0.1.0"]
 ```
 
 TODO
