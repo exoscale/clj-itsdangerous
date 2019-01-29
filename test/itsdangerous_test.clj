@@ -1,9 +1,9 @@
-(ns itsdangerous.core-test
+(ns itsdangerous-test
   (:require [clojure.test :refer :all]
             [clojure.test.check.clojure-test :refer (defspec)]
             [clojure.test.check.generators :as gen]
             [clojure.test.check.properties :as props]
-            [itsdangerous.core :as itsdangerous]
+            itsdangerous
             [buddy.core.codecs :as codecs]
             [buddy.core.bytes :as bytes]
             [buddy.sign.util :as util]

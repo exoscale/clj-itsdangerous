@@ -1,13 +1,15 @@
-(ns itsdangerous.core
+(ns itsdangerous
   "ItsDangerous Signature implementation."
   (:require [buddy.core.codecs :as codecs]
             [buddy.core.codecs.base64 :as b64]
             [buddy.core.hash :as hash]
             [buddy.core.mac :as mac]
             [buddy.sign.util :as util]
+            [itsdangerous.codecs :refer [bytes->int int->bytes]]
             [clojure.string :as str]
             [cheshire.core :as json])
-  (:import org.bouncycastle.crypto.macs.HMac))
+  (:import java.nio.ByteBuffer
+           org.bouncycastle.crypto.macs.HMac))
 
 ;; https://github.com/funcool/buddy-core/issues/58
 (defmethod mac/engine :hmac+sha1
@@ -63,12 +65,6 @@
                     payload)]
     (verifier payload' signature dkey)))
 
-(defn- truncate
-  [xs start end]
-  (byte-array
-   (for [i (range start end)]
-     (aget xs i))))
-
 (defn- timed-sign
   "Sign arbitrary length string/byte array using
   json web token/signature."
@@ -76,8 +72,7 @@
   {:pre [payload]}
   (let [payload   (encode-payload payload)
         ts        (-> (or timestamp (util/now))
-                      (codecs/long->bytes)
-                      (truncate 4 8)
+                      (int->bytes)
                       (encode-payload))
         payload'  (str/join "." [payload ts])
         signature (calculate-signature {:key pkey
@@ -126,9 +121,8 @@
                          {:type :validation :cause :timestamp})))
        (let [timestamp (->> ts
                             (b64/decode)
-                            (concat [0 0 0 0])
-                            (byte-array)
-                            (codecs/bytes->long))
+                            (bytes->int)
+                            long)
              age       (- (util/now) (or timestamp 0))]
          (when (> age max-age)
            (throw (ex-info (format "Message seems expired %d > %d seconds." age max-age)
