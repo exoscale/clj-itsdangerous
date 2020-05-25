@@ -1,0 +1,8 @@
+{:paths   ["src"]
+ :deps    {org.clojure/clojure {:mvn/version "1.10.1"}
+           exoscale/ex         {:mvn/version "0.3.9"}
+           spootnik/constance  {:mvn/version "0.5.4"}}
+ :aliases {:carve {:extra-deps {borkdude/carve
+                                {:git/url "https://github.com/borkdude/carve"
+                                 :sha     "4b5010a09e030dbd998faff718d12400748ab3b9"}}
+                   :main-opts  ["-m" "carve.main"]}}}
