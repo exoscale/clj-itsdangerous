@@ -1,4 +1,4 @@
-(defproject exoscale/itsdangerous "0.1.1-SNAPSHOT"
+(defproject exoscale/itsdangerous "0.1.1"
   :description "Clojure incomplete port of https://palletsprojects.com/p/itsdangerous/"
   :url "https://github.com/exoscale/clj-itsdangerous"
   :license {:name "MIT/ISC"
