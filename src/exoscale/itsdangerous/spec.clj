@@ -11,35 +11,50 @@
 
 (s/def ::d/payload      string?)
 (s/def ::d/private-key  (s/and string? (complement str/blank?)))
+(s/def ::d/private-keys (s/and  (s/coll-of ::d/private-key)
+                                (complement empty?)))
 (s/def ::d/algorithm    #{::d/hmac-sha1 ::d/hmac-sha256})
 (s/def ::d/salt         (s/and string? (complement str/blank?)))
 (s/def ::d/max-age      nat-int?)
 (s/def ::d/token        (partial re-matches token-pattern))
 (s/def ::d/timestamp    (s/and nat-int? #(< % Integer/MAX_VALUE)))
 (s/def ::d/signature    (s/and string? (complement str/blank?)))
+(s/def ::d/signatures   (s/coll-of ::d/signature))
 (s/def ::d/to-sign      string?)
 (s/def ::d/parsed-token (s/keys :req [::d/payload ::d/timestamp
                                       ::d/signature ::d/to-sign]))
-(s/def ::d/config       (s/keys :req [::d/private-key ::d/salt ::d/algorithm]))
-(s/def ::d/verify-input (s/keys :req [::d/private-key ::d/salt
-                                      ::d/algorithm ::d/token]
-                                :opt [::d/max-age]))
-(s/def ::d/sign-input   (s/keys :req [::d/private-key ::d/salt
-                                      ::d/algorithm ::d/payload]
-                                :opt [::d/timestamp]))
-(s/def ::d/sigfor-input (s/keys :req [::d/private-key ::d/salt ::d/algorithm]))
-
+(s/def ::d/config       (s/keys :req [(or ::d/private-key
+                                          ::d/private-keys)
+                                      ::d/salt
+                                      ::d/algorithm]))
+(s/def ::d/verify-input (s/merge ::d/config
+                                 (s/keys :req [::d/token])))
+(s/def ::d/sign-input   (s/merge ::d/config
+                                 (s/keys :req [::d/payload]
+                                         :opt [::d/timestamp])))
 (s/fdef d/verify
-  :args (s/cat :opts ::d/verify-input)
+  :args (s/cat :config  ::d/config
+               :token   (s/? ::d/token)
+               :max-age (s/? ::d/max-age))
   :ret  ::d/payload)
 
 (s/fdef d/sign
-  :args (s/cat :opts ::d/sign-input)
+  :args (s/cat :config    ::d/config
+               :payload   (s/? ::d/payload)
+               :timestamp (s/? ::d/timestamp))
   :ret  ::d/token)
 
+(s/fdef d/main-key
+  :args (s/cat :config ::d/config)
+  :ret  ::d/private-key)
+
 (s/fdef d/signature-for
-  :args (s/cat :opts ::d/sigfor-input :payload ::d/payload)
+  :args (s/cat :config ::d/config :payload ::d/payload :k ::d/private-key)
   :ret  ::d/signature)
+
+(s/fdef d/signatures-for
+  :args (s/cat :config ::d/config :payload ::d/payload)
+  :ret  ::d/signatures)
 
 (s/fdef d/epoch
   :args (s/cat)
