@@ -9,8 +9,9 @@
             exoscale.itsdangerous.spec))
 
 (def parse-token-overrides
-  {::danger/token (constantly
-                   (gen/fmap danger/sign (s/gen ::danger/sign-input)))})
+  {::danger/token #(gen/fmap
+                    (partial apply danger/sign)
+                    (s/gen (s/tuple ::danger/config ::danger/payload)))})
 
 (deftest parse-token-test
   (is
@@ -25,6 +26,30 @@
   (is
    (empty?
     (for [res (stest/check `danger/signature-for)
+          :let [abbrev (stest/abbrev-result res)]
+          :when (some? (:failure abbrev))]
+      abbrev))))
+
+(deftest signatures-for-test
+  (is
+   (empty?
+    (for [res (stest/check `danger/signatures-for)
+          :let [abbrev (stest/abbrev-result res)]
+          :when (some? (:failure abbrev))]
+      abbrev))))
+
+(deftest main-key-test
+  (is
+   (empty?
+    (for [res (stest/check `danger/main-key)
+          :let [abbrev (stest/abbrev-result res)]
+          :when (some? (:failure abbrev))]
+      abbrev))))
+
+(deftest epoch-test
+  (is
+   (empty?
+    (for [res (stest/check `danger/epoch)
           :let [abbrev (stest/abbrev-result res)]
           :when (some? (:failure abbrev))]
       abbrev))))
