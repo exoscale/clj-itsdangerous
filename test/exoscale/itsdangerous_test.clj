@@ -1,5 +1,6 @@
 (ns exoscale.itsdangerous-test
   (:require [clojure.test          :refer :all]
+            [itsdangerous]
             [exoscale.itsdangerous :as danger]))
 
 (deftest readme-test
@@ -46,4 +47,8 @@
                          ::danger/private-key "A-SECRET-KEY"
                          ::danger/salt        "session"
                          ::danger/token       "SEVMTE8.nppGBrCjzE0Ipz1pzm6gRLwi_rc"})
+         (itsdangerous/unsign "SEVMTE8.nppGBrCjzE0Ipz1pzm6gRLwi_rc"
+                              "A-SECRET-KEY"
+                              {:alg :hs1
+                               :salt "session"})
          "HELLO")))
