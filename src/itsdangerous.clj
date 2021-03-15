@@ -25,6 +25,6 @@
   (danger/verify (cond-> {::danger/algorithm   (get known-algos alg alg)
                           ::danger/salt        salt
                           ::danger/private-key pkey
-                          ::danger/input       input}
+                          ::danger/token       input}
                    (some? max-age)
                    (assoc ::danger/max-age max-age))))
