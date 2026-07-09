@@ -73,3 +73,18 @@
           (danger/verify (update config ::danger/salt str "suffix") token)
           (catch Exception e
             [(:type (ex-data e)) (ex-message e)]))))))
+
+(defspec fallback-algorithm-verification
+  10000
+  (prop/for-all
+   [config  (s/gen ::danger/config)
+    payload (s/gen ::danger/payload)]
+   (let [other-algorithm (if (= (::danger/algorithm config) ::danger/hmac-sha1)
+                           ::danger/hmac-sha256
+                           ::danger/hmac-sha1)
+         sign-config (assoc config ::danger/private-key (first (::danger/private-keys config)))
+         token (danger/sign sign-config payload)
+         verify-config (assoc config
+                              ::danger/algorithm other-algorithm
+                              ::danger/fallbacks [{::danger/algorithm (::danger/algorithm config)}])]
+     (= payload (danger/verify verify-config token)))))

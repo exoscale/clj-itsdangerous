@@ -21,7 +21,6 @@
     :exoscale.itsdangerous/hmac-sha1   "SHA-1"
     :exoscale.itsdangerous/hmac-sha256 "SHA-256"))
 
-;; Digest (new)
 (defn digest
   "Compute the hash of a byte array using the given algorithm."
   [algorithm ^bytes data]
@@ -29,7 +28,6 @@
         md (MessageDigest/getInstance (str hash-type))]
     (.digest md data)))
 
-;; HMAC signing (new)
 (defn hmac-sign
   "Compute the HMAC of a payload using the given algorithm and key."
   [algorithm raw-input derived-key]
@@ -41,7 +39,6 @@
     (-> (doto (Mac/getInstance (str hmac-type)) (.init key))
         (.doFinal ^bytes payload))))
 
-;; Key derivation (new)
 (defn derive-key
   "Derive a key from secret and salt using the given algorithm and key derivation method.
 
@@ -77,5 +74,3 @@
         (digest algorithm data))
 
       (ex/ex-not-found! (str "unknown key derivation: " key-derivation)))))
-
-
