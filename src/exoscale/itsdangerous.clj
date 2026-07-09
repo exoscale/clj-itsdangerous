@@ -1,31 +1,14 @@
 (ns exoscale.itsdangerous
-  "ItsDangerous signed token implementation. This namespace provides two main
-   signatures: `sign` and `verify`, refer to their documentation for details.
-   ItsDangerous uses a simple hmac-based scheme to sign credentials. It is
-   widely used in the Python world, especially in Flask applications.
-   See https://itsdangerous.palletsprojects.com/en/1.1.x/ for more details.
+  "ItsDangerous signed token implementation.
 
-   ItsDangerous revolves around tuples of `[payload, timestamp, signature]`
-   or the untimed `[payload, signature]` alternative. In its URL safe variant,
-   each element of the tuple is Base64 encoded. This is the only variant
-   supported in this implementation.
+   This namespace provides two main signatures: `sign` and `verify`,
+   refer to their documentation for details. ItsDangerous uses a simple
+   HMAC-based scheme to sign credentials. It is widely used in the Python
+   world, especially in Flask applications.
 
-   When signing and verifying, ItsDangerous supports the addition of a somewhat
-   misnamed *salt*, used to namespace signing. In this case, the key is derived
-   by first hashing the salt. The derived key is then used to sign or verify
-   payloads.
-
-   Knowledge that should be shared out-of-band between signers and verifiers:
-
-     - A secret key (K)
-     - A salt for namespacing (S)
-     - The selected hashing algorithm (A) (with functions HASH_A and HMAC_A)
-
-   For a payload P at timestamp T, signing consists of:
-
-       TOSIGN = T ? (B64(P) + '.' + B64(T)) : (B64(P))
-       B64(P) + TOSIGN + '.' + B64(HMAC_A(HASH_A(K, S), TOSIGN))"
+   See https://itsdangerous.palletsprojects.com/ for more details."
   (:require [exoscale.ex                 :as ex]
+            [clojure.data.json           :as json]
             [constance.comp              :as comp]
             [exoscale.itsdangerous.hmac  :as hmac]
             [exoscale.itsdangerous.codec :as codec]
@@ -37,15 +20,17 @@
   (quot (System/currentTimeMillis) 1000))
 
 (defn parse-token
-  "Split a ItsDangerous token into its constituent parts. Assume timestamp to
-   be 0 when not provided. The string to sign is returned as well."
+  "Split a ItsDangerous token into its constituent parts.  Returns the
+   raw payload part, optional timestamp part, parsed timestamp, the
+   string to sign, and the signature."
   [s]
   (try
-    (if-let [[_ payload timestamp signature] (re-matches spec/token-pattern s)]
-      {::payload   (codec/b64->s payload)
-       ::timestamp (if (some? timestamp) (codec/b64->int timestamp) 0)
-       ::to-sign   (cond-> payload (some? timestamp) (str "." timestamp))
-       ::signature signature}
+    (if-let [[_ payload-part timestamp-part signature] (re-matches spec/token-pattern s)]
+      {::payload-part   payload-part
+       ::timestamp-part timestamp-part
+       ::timestamp      (if (some? timestamp-part) (codec/b64->int timestamp-part) 0)
+       ::to-sign        (cond-> payload-part (some? timestamp-part) (str "." timestamp-part))
+       ::signature      signature}
       (ex/ex-incorrect! "wrong token format" {::token s}))
     (catch Exception e
       (ex/ex-incorrect! "error while processing token" {::token s} e))))
@@ -58,38 +43,59 @@
   (or (first private-keys) private-key))
 
 (defn signature-for
-  "Given a supported algorithm (`::hmac-sha1` `::hmac-sha256`), private key, and
-   salt, compute the signature of a payload. Yields the signature in Base64."
-  [{::keys [algorithm salt] :as config} payload private-key]
-  (let [signer (hmac/by-algorithm algorithm)]
-    (->> (signer salt private-key)
-         (signer payload)
-         (codec/b->b64))))
+  "Compute the signature of a to-sign string. Yields the signature in Base64.
+
+   Uses the configured algorithm, salt, and key derivation method."
+  [{::keys [algorithm salt key-derivation] :as config} to-sign private-key]
+  (let [key-derivation (or key-derivation ::django-concat)
+        derived-key    (hmac/derive-key algorithm key-derivation private-key salt)]
+    (codec/b->b64 (hmac/hmac-sign algorithm to-sign derived-key))))
 
 (defn signatures-for
-  "Yield all possible signatures for a payload, based on the config"
-  [{::keys [algorithm private-keys salt] :as config} payload]
+  "Yield all possible signatures for a to-sign string, based on the config."
+  [{::keys [algorithm salt key-derivation private-keys private-key] :as config} to-sign]
   (if (empty? private-keys)
-    [(signature-for config payload (::private-key config))]
-    (for [private-key private-keys]
-      (signature-for config payload private-key))))
+    [(signature-for config to-sign private-key)]
+    (for [key private-keys]
+      (signature-for config to-sign key))))
 
 (defn sign
   "Run the signature process for a payload, yields token as a string.
 
    Needs at least `::algorithm`, `::salt`, `::private-key`, and `::payload`.
-   `::algorithm`, `::salt`, and `::private-key` are shared knowledge elements,
-   to be agreed upon out-of-band, `::payload`, the payload to sign as a string.
-   If `::private-keys` is provided instead of `::private-key`, the first key
-   in the collection is used to sign the payload.
+   `::algorithm`, `::salt`, and `::private-key` are shared knowledge elements.
 
-   Optionally accepts `::timestamp`, defaulting to the UNIX epoch in seconds."
-  ([{::keys [algorithm salt timestamp payload]
-     :or    {algorithm ::hmac-sha1
-             timestamp (epoch)}
+   `::signer-type` controls the token format:
+   - `::signer`                  (untimed, raw payload)
+   - `::timestamp-signer`        (timed, raw payload) — default
+   - `::url-safe-serializer`     (untimed, JSON payload)
+   - `::url-safe-timed-serializer` (timed, JSON payload)
+
+   `::key-derivation` defaults to `::django-concat`.
+   `::timestamp` defaults to the UNIX epoch in seconds.
+   If `::private-keys` is provided instead of `::private-key`, the first key
+   in the collection is used to sign the payload."
+  ([{::keys [algorithm salt key-derivation signer-type timestamp payload]
+     :or    {algorithm      ::hmac-sha1
+             key-derivation ::django-concat
+             signer-type    ::timestamp-signer
+             timestamp      (epoch)}
      :as    config}]
    (ex/assert-spec-valid ::sign-input config)
-   (let [to-sign (str (codec/s->b64 payload) "." (codec/int->b64 timestamp))]
+   (let [to-sign (case signer-type
+                   ::signer
+                   payload
+
+                   ::timestamp-signer
+                   (str payload "." (codec/int->b64 timestamp))
+
+                   ::url-safe-serializer
+                   (codec/s->b64 (json/write-str payload))
+
+                   ::url-safe-timed-serializer
+                   (str (codec/s->b64 (json/write-str payload))
+                        "."
+                        (codec/int->b64 timestamp)))]
      (str to-sign "." (signature-for config to-sign (main-key config)))))
   ([config payload]
    (sign (assoc config ::payload payload)))
@@ -101,23 +107,36 @@
    or if the token's validity has expired. Yields the payload upon success.
 
    Needs at least `::algorithm`, `::salt`, `::private-key`, and `::token`.
-  `::algorithm`, `::salt`, and `::private-key` are shared knowledge elements,
-   to be agreed upon out-of-band, `::token`, the token to verify.
+   `::signer-type` defaults to `::timestamp-signer`.
+   `::key-derivation` defaults to `::django-concat`.
 
    Optionally accepts `::max-age`, in which case token validity in time will be
    checked."
-  ([{::keys [token algorithm salt max-age private-key]
-     :or    {algorithm ::hmac-sha1}
+  ([{::keys [token algorithm salt key-derivation signer-type max-age private-key]
+     :or    {algorithm      ::hmac-sha1
+             key-derivation ::django-concat
+             signer-type    ::timestamp-signer}
      :as    config}]
    (ex/assert-spec-valid ::verify-input config)
-   (let [{::keys [to-sign payload timestamp signature]} (parse-token token)]
+   (let [{::keys [payload-part timestamp-part timestamp to-sign signature]} (parse-token token)]
      (when-not (some (partial comp/=== signature)
                      (signatures-for config to-sign))
        (ex/ex-forbidden! "invalid signature"))
      (when (and (some? max-age)
                 (< max-age (- (epoch) timestamp)))
        (ex/ex-forbidden! "token validity expired"))
-     payload))
+     (case signer-type
+       ::signer
+       payload-part
+
+       ::timestamp-signer
+       payload-part
+
+       ::url-safe-serializer
+       (json/read-str (codec/b64->s payload-part))
+
+       ::url-safe-timed-serializer
+       (json/read-str (codec/b64->s payload-part)))))
   ([config token]
    (verify (assoc config ::token token)))
   ([config token max-age]

@@ -43,12 +43,14 @@
              payload)))))
 
 (deftest compatibility-test
-  (is (= (danger/verify {::danger/algorithm   ::danger/hmac-sha1
-                         ::danger/private-key "A-SECRET-KEY"
-                         ::danger/salt        "session"
-                         ::danger/token       "SEVMTE8.nppGBrCjzE0Ipz1pzm6gRLwi_rc"})
-         (itsdangerous/unsign "SEVMTE8.nppGBrCjzE0Ipz1pzm6gRLwi_rc"
-                              "A-SECRET-KEY"
-                              {:alg :hs1
-                               :salt "session"})
-         "HELLO")))
+  (let [token (itsdangerous/sign "HELLO" "A-SECRET-KEY" {:alg :hs1 :salt "session" :timestamp 0})]
+    (is (= "HELLO"
+           (danger/verify {::danger/algorithm      ::danger/hmac-sha1
+                           ::danger/key-derivation ::danger/hmac
+                           ::danger/signer-type    ::danger/timestamp-signer
+                           ::danger/private-key    "A-SECRET-KEY"
+                           ::danger/salt           "session"
+                           ::danger/token          token})
+           (itsdangerous/unsign token
+                                "A-SECRET-KEY"
+                                {:alg :hs1 :salt "session"})))))
