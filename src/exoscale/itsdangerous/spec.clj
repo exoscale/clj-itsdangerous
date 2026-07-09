@@ -15,7 +15,7 @@
 (s/def ::d/private-key      (s/and string? (complement str/blank?)))
 (s/def ::d/private-keys     (s/and (s/coll-of ::d/private-key)
                                    (complement empty?)))
-(s/def ::d/algorithm        #{::d/hmac-sha1 ::d/hmac-sha256})
+(s/def ::d/algorithm        #{::d/hmac-sha1 ::d/hmac-sha256 ::d/hmac-sha512})
 (s/def ::d/key-derivation   #{::d/hmac ::d/concat ::d/django-concat})
 (s/def ::d/signer-type      #{::d/signer
                               ::d/timestamp-signer

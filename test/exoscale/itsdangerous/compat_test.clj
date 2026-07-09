@@ -23,7 +23,8 @@
 
 (def ^:private algorithm-map
   {"sha1"   ::danger/hmac-sha1
-   "sha256" ::danger/hmac-sha256})
+   "sha256" ::danger/hmac-sha256
+   "sha512" ::danger/hmac-sha512})
 
 (def ^:private signer-type-map
   {"Signer"                 ::danger/signer
@@ -120,7 +121,7 @@
                    ", got " (pr-str result))))))))
 
 (deftest clojure-to-python-compressed-compatibility
-  (doseq [algorithm ["sha1" "sha256"]
+  (doseq [algorithm ["sha1" "sha256" "sha512"]
           signer    ["URLSafeSerializer" "URLSafeTimedSerializer"]
           key-derivation ["hmac" "concat" "django-concat"]]
     (testing (str "Clojure -> Python (compressed): " signer " " algorithm " " key-derivation)

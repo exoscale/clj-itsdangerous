@@ -32,6 +32,7 @@ LARGE_PAYLOAD = "x" * 200
 ALGORITHMS = {
     "sha1": hashlib.sha1,
     "sha256": hashlib.sha256,
+    "sha512": hashlib.sha512,
 }
 
 KEY_DERIVATIONS = ["hmac", "concat", "django-concat"]

@@ -44,7 +44,7 @@ The library exposes two functions: `sign` and `verify`.
 
 ### Configuration parameters
 
-- `:exoscale.itsdangerous/algorithm` — `:exoscale.itsdangerous/hmac-sha1` (default) or `:exoscale.itsdangerous/hmac-sha256`
+- `:exoscale.itsdangerous/algorithm` — `:exoscale.itsdangerous/hmac-sha1` (default), `:exoscale.itsdangerous/hmac-sha256`, or `:exoscale.itsdangerous/hmac-sha512`
 - `:exoscale.itsdangerous/private-key` — a secret string used to sign tokens (required for `sign`)
 - `:exoscale.itsdangerous/private-keys` — a collection of secret strings. All keys are tried when verifying, allowing seamless key rotation (required for `verify`).
 - `:exoscale.itsdangerous/salt` — a non-empty string to namespace tokens
