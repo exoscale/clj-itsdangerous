@@ -78,24 +78,4 @@
 
       (ex/ex-not-found! (str "unknown key derivation: " key-derivation)))))
 
-;; Backward compatible functions (still used by old signature-for in deprecated ns)
-(defn sha
-  "Compute the HMAC of a payload, given a secret-key and
-   supported algorithm."
-  [hmac-type raw-input secret-string]
-  (let [algorithm (case hmac-type
-                    "HmacSHA1"   :exoscale.itsdangerous/hmac-sha1
-                    "HmacSHA256" :exoscale.itsdangerous/hmac-sha256)]
-    (hmac-sign algorithm raw-input secret-string)))
 
-(def supported-algorithms
-  "Known signing algorithms."
-  {:exoscale.itsdangerous/hmac-sha1   (partial sha "HmacSHA1")
-   :exoscale.itsdangerous/hmac-sha256 (partial sha "HmacSHA256")})
-
-(defn by-algorithm
-  "Retrieve signing function by algorithm, throws when an
-   unsupported algorithm is requested."
-  [algorithm]
-  (or (get supported-algorithms algorithm)
-      (ex/ex-not-found! (str "unknown algorithm: " algorithm))))

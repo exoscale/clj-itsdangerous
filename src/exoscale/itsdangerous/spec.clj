@@ -13,8 +13,8 @@
 
 (s/def ::d/payload          string?)
 (s/def ::d/private-key      (s/and string? (complement str/blank?)))
-(s/def ::d/private-keys     (s/and  (s/coll-of ::d/private-key)
-                                    (complement empty?)))
+(s/def ::d/private-keys     (s/and (s/coll-of ::d/private-key)
+                                   (complement empty?)))
 (s/def ::d/algorithm        #{::d/hmac-sha1 ::d/hmac-sha256})
 (s/def ::d/key-derivation   #{::d/hmac ::d/concat ::d/django-concat})
 (s/def ::d/signer-type      #{::d/signer
@@ -30,8 +30,7 @@
 (s/def ::d/to-sign          string?)
 (s/def ::d/parsed-token     (s/keys :req [::d/payload-part ::d/timestamp
                                           ::d/signature ::d/to-sign]))
-(s/def ::d/config           (s/keys :req [(or ::d/private-key
-                                              ::d/private-keys)
+(s/def ::d/config           (s/keys :req [::d/private-keys
                                           ::d/salt
                                           ::d/algorithm]
                                     :opt [::d/key-derivation
@@ -52,22 +51,6 @@
                :payload   (s/? ::d/payload)
                :timestamp (s/? ::d/timestamp))
   :ret  ::d/token)
-
-(s/fdef d/main-key
-  :args (s/cat :config ::d/config)
-  :ret  ::d/private-key)
-
-(s/fdef d/signature-for
-  :args (s/cat :config ::d/config :payload ::d/payload :k ::d/private-key)
-  :ret  ::d/signature)
-
-(s/fdef d/signatures-for
-  :args (s/cat :config ::d/config :payload ::d/payload)
-  :ret  ::d/signatures)
-
-(s/fdef d/epoch
-  :args (s/cat)
-  :ret  ::d/timestamp)
 
 (s/fdef d/parse-token
   :args (s/cat :input ::d/token :signer-type ::d/signer-type)
