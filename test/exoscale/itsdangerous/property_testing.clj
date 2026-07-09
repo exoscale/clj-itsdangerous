@@ -15,7 +15,8 @@
   (prop/for-all
    [config (s/gen ::danger/config)
     payload (s/gen ::danger/payload)]
-   (let [token (danger/sign config payload)]
+   (let [sign-config (assoc config ::danger/private-key (first (::danger/private-keys config)))
+         token (danger/sign sign-config payload)]
      (= payload (danger/verify config token)))))
 
 (defspec token-validity-is-enforced
@@ -23,7 +24,8 @@
   (prop/for-all
    [config  (s/gen ::danger/config)
     payload (s/gen ::danger/payload)]
-   (let [token (danger/sign config payload 0)]
+   (let [sign-config (assoc config ::danger/private-key (first (::danger/private-keys config)))
+         token (danger/sign sign-config payload 0)]
      (= [:exoscale.ex/forbidden "token validity expired"]
         (try
           (danger/verify config token 86400)
@@ -35,7 +37,8 @@
   (prop/for-all
    [config  (s/gen ::danger/config)
     payload (s/gen ::danger/payload)]
-   (let [token (danger/sign config payload 0)]
+   (let [sign-config (assoc config ::danger/private-key (first (::danger/private-keys config)))
+         token (danger/sign sign-config payload 0)]
      (= [:exoscale.ex/forbidden "token validity expired"]
         (try
           (danger/verify config token 0)
@@ -50,7 +53,8 @@
     payload     (s/gen ::danger/payload)]
    (let [good-config (assoc base ::danger/private-keys [private-key])
          bad-config  (assoc base ::danger/private-keys [(str private-key "f")])
-         token       (danger/sign good-config payload)]
+         sign-config (assoc good-config ::danger/private-key (first (::danger/private-keys good-config)))
+         token       (danger/sign sign-config payload)]
      (= [:exoscale.ex/forbidden "invalid signature"]
         (try
           (danger/verify  bad-config token)
@@ -62,7 +66,8 @@
   (prop/for-all
    [config  (s/gen ::danger/config)
     payload (s/gen ::danger/payload)]
-   (let [token (danger/sign config payload)]
+   (let [sign-config (assoc config ::danger/private-key (first (::danger/private-keys config)))
+         token (danger/sign sign-config payload)]
      (= [:exoscale.ex/forbidden "invalid signature"]
         (try
           (danger/verify (update config ::danger/salt str "suffix") token)
