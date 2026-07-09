@@ -22,7 +22,7 @@ from itsdangerous import (
     URLSafeSerializer,
     URLSafeTimedSerializer,
 )
-from itsdangerous.encoding import base64_encode
+
 
 SECRET = "secret-key"
 SALT = "cookie-session"
@@ -120,19 +120,7 @@ def generate_compressed():
                 signer = create_signer(signer_type, alg_name, kd)
                 token = _sign(signer, signer_type, LARGE_PAYLOAD)
 
-                # Verify the payload part is actually compressed (starts with ".")
-                payload_part = token.split(".")[0] if "." in token else token
-                # For URLSafeTimedSerializer, the first "."-separated part is
-                # the payload (which may start with "." if compressed)
-                # Actually, the token is: payload.timestamp.signature
-                # and payload itself may start with "." if compressed
-                # So the token may start with ".." when compressed
-                is_compressed = token.startswith("..") or (
-                    "." in token
-                    and token.split(".", 2)[0] == ""
-                    and token.count(".") >= 2
-                )
-                # Simpler check: the first base64 char is "."
+                # Verify the payload part is actually compressed: payload starts with "."
                 is_compressed = token.startswith(".")
 
                 results.append(
