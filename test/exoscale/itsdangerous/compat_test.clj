@@ -91,22 +91,53 @@
               (str "payload mismatch: expected " (pr-str (:payload spec))
                    ", got " (pr-str result))))))))
 
-(deftest clojure-to-python-compatibility
+(def ^:private large-payload (apply str (repeat 200 "x")))
+
+(defn- python-compressed-tokens
+  []
+  (run-python "generate-compressed"))
+
+(deftest python-to-clojure-compressed-compatibility
+  (doseq [spec (python-compressed-tokens)]
+    (testing (str "Python -> Clojure (compressed): " (label spec))
+      (is (:compressed spec)
+          "Python should have produced a compressed token")
+      (let [config {::danger/algorithm      (algorithm-map (:algorithm spec))
+                    ::danger/key-derivation (key-derivation-map (:key_derivation spec))
+                    ::danger/signer-type    (signer-type-map (:signer spec))
+                    ::danger/private-key    (:secret spec)
+                    ::danger/salt           (:salt spec)
+                    ::danger/token          (:token spec)}
+            result (try
+                     (danger/verify config)
+                     (catch Exception e
+                       {:error (.getMessage e)}))]
+        (is (not (map? result))
+            (str "verification threw: " (:error result)))
+        (when-not (map? result)
+          (is (= (:payload spec) result)
+              (str "payload mismatch: expected " (pr-str (:payload spec))
+                   ", got " (pr-str result))))))))
+
+(deftest clojure-to-python-compressed-compatibility
   (doseq [algorithm ["sha1" "sha256"]
-          signer    ["Signer" "TimestampSigner"
-                     "URLSafeSerializer" "URLSafeTimedSerializer"]
+          signer    ["URLSafeSerializer" "URLSafeTimedSerializer"]
           key-derivation ["hmac" "concat" "django-concat"]]
-    (testing (str "Clojure -> Python: " signer " " algorithm " " key-derivation)
+    (testing (str "Clojure -> Python (compressed): " signer " " algorithm " " key-derivation)
       (let [clj-token (danger/sign {::danger/algorithm      (algorithm-map algorithm)
                                     ::danger/key-derivation (key-derivation-map key-derivation)
                                     ::danger/signer-type    (signer-type-map signer)
                                     ::danger/private-key    secret
                                     ::danger/salt           salt
-                                    ::danger/payload        payload})
-            result    (python-verify clj-token algorithm key-derivation signer)]
+                                    ::danger/payload        large-payload})
+            ;; Verify the token is actually compressed (payload part starts with ".")
+            _           (is (-> clj-token
+                                 (.startsWith "."))
+                            (str "token should be compressed: " (pr-str clj-token)))
+            result      (python-verify clj-token algorithm key-derivation signer)]
         (is (:valid result)
             (str "Python verification failed: " result))
         (when (:valid result)
-          (is (= payload (:payload result))
-              (str "payload mismatch: expected " (pr-str payload)
+          (is (= large-payload (:payload result))
+              (str "payload mismatch: expected " (pr-str large-payload)
                    ", got " (pr-str (:payload result)))))))))

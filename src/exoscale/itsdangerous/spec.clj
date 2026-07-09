@@ -6,8 +6,10 @@
 (alias 'd 'exoscale.itsdangerous)
 
 (def token-pattern
-  "Regexp for a valid itsdangerous token"
-  #"^([^.]*)\.(?:([^.]*)\.)?([^.]+)$")
+  "Regexp for a valid itsdangerous token.  Must contain at least one dot
+   separating the payload from the signature.  May start with a dot for
+   compressed URL-safe serializer tokens or empty payloads."
+  #".*\..+")
 
 (s/def ::d/payload          string?)
 (s/def ::d/private-key      (s/and string? (complement str/blank?)))
@@ -68,5 +70,5 @@
   :ret  ::d/timestamp)
 
 (s/fdef d/parse-token
-  :args (s/cat :input ::d/token)
+  :args (s/cat :input ::d/token :signer-type ::d/signer-type)
   :ret  ::d/parsed-token)
