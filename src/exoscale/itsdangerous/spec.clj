@@ -37,7 +37,12 @@
                                           ::d/signer-type]))
 (s/def ::d/verify-input     (s/merge ::d/config
                                      (s/keys :req [::d/token])))
-(s/def ::d/sign-input       (s/merge ::d/config
+(s/def ::d/sign-config      (s/keys :req [::d/private-key
+                                          ::d/salt
+                                          ::d/algorithm]
+                                    :opt [::d/key-derivation
+                                          ::d/signer-type]))
+(s/def ::d/sign-input       (s/merge ::d/sign-config
                                      (s/keys :req [::d/payload]
                                              :opt [::d/timestamp])))
 (s/fdef d/verify
@@ -47,7 +52,7 @@
   :ret  ::d/payload)
 
 (s/fdef d/sign
-  :args (s/cat :config    ::d/config
+  :args (s/cat :config    ::d/sign-config
                :payload   (s/? ::d/payload)
                :timestamp (s/? ::d/timestamp))
   :ret  ::d/token)

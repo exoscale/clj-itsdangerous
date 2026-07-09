@@ -30,7 +30,7 @@ The library exposes two functions: `sign` and `verify`.
 (require '[exoscale.itsdangerous :as danger])
 
 (danger/sign {:exoscale.itsdangerous/algorithm    :exoscale.itsdangerous/hmac-sha256
-              :exoscale.itsdangerous/private-keys ["A-SECRET-KEY"]
+              :exoscale.itsdangerous/private-key  "A-SECRET-KEY"
               :exoscale.itsdangerous/salt         "session"
               :exoscale.itsdangerous/payload      "{\"user-id\": 1234}"})
 ;; => "some-token"
@@ -45,7 +45,8 @@ The library exposes two functions: `sign` and `verify`.
 ### Configuration parameters
 
 - `:exoscale.itsdangerous/algorithm` — `:exoscale.itsdangerous/hmac-sha1` (default) or `:exoscale.itsdangerous/hmac-sha256`
-- `:exoscale.itsdangerous/private-keys` — a collection of secret strings. The first key is used to sign. All keys are tried when verifying, allowing seamless key rotation.
+- `:exoscale.itsdangerous/private-key` — a secret string used to sign tokens (required for `sign`)
+- `:exoscale.itsdangerous/private-keys` — a collection of secret strings. All keys are tried when verifying, allowing seamless key rotation (required for `verify`).
 - `:exoscale.itsdangerous/salt` — a non-empty string to namespace tokens
 - `:exoscale.itsdangerous/signer-type` — controls the token format:
   - `:exoscale.itsdangerous/signer` — raw payload, no timestamp

@@ -161,8 +161,8 @@
 (defn sign
   "Run the signature process for a payload, yields token as a string.
 
-   Needs at least `::algorithm`, `::salt`, `::private-keys`, and `::payload`.
-   `::algorithm`, `::salt`, and `::private-keys` are shared knowledge elements.
+  Needs at least `::algorithm`, `::salt`, `::private-key`, and `::payload`.
+   `::algorithm`, `::salt`, and `::private-key` are shared knowledge elements.
 
    `::signer-type` controls the token format:
    - `::signer`                   (untimed, raw payload)
@@ -171,9 +171,8 @@
    - `::url-safe-timed-serializer` (timed, JSON payload, optional zlib compression)
 
    `::key-derivation` defaults to `::django-concat`.
-   `::timestamp` defaults to the UNIX epoch in seconds.
-   The first key in `::private-keys` is used to sign the payload."
-  ([{::keys [algorithm salt key-derivation signer-type timestamp payload private-keys]
+   `::timestamp` defaults to the UNIX epoch in seconds."
+  ([{::keys [algorithm salt key-derivation signer-type timestamp payload private-key]
      :or    {algorithm      ::hmac-sha1
              key-derivation ::django-concat
              signer-type    ::timestamp-signer
@@ -194,7 +193,7 @@
                    (str (url-safe-payload-part payload)
                         "."
                         (codec/int->b64 timestamp)))]
-     (str to-sign "." (signature-for config to-sign (first private-keys)))))
+     (str to-sign "." (signature-for config to-sign private-key))))
   ([config payload]
    (sign (assoc config ::payload payload)))
   ([config payload timestamp]

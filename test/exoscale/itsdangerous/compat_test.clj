@@ -127,7 +127,7 @@
       (let [clj-token (danger/sign {::danger/algorithm      (algorithm-map algorithm)
                                     ::danger/key-derivation (key-derivation-map key-derivation)
                                     ::danger/signer-type    (signer-type-map signer)
-                                    ::danger/private-keys [secret]
+                                    ::danger/private-key secret
                                     ::danger/salt           salt
                                     ::danger/payload        large-payload})
             ;; Verify the token is actually compressed (payload part starts with ".")
