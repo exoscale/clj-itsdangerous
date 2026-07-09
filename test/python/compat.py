@@ -2,14 +2,16 @@
 """Compatibility bridge between clj-itsdangerous and Python itsdangerous.
 
 Subcommands:
-  generate   — emit a JSON array of tokens for every signer/algorithm/derivation
-  verify     — read a JSON object on stdin, verify its token, emit JSON result
+  generate              — emit JSON array of tokens for all signer/alg/derivation combos
+  generate-compressed   — same but with a large payload that triggers zlib compression
+  verify                — read a JSON object on stdin, verify its token, emit JSON result
 """
 
 import hashlib
 import json
 import sys
 import time as _time
+import zlib
 
 FIXED_TIMESTAMP = 1700000000
 _time.time = lambda: float(FIXED_TIMESTAMP)
@@ -20,10 +22,12 @@ from itsdangerous import (
     URLSafeSerializer,
     URLSafeTimedSerializer,
 )
+from itsdangerous.encoding import base64_encode
 
 SECRET = "secret-key"
 SALT = "cookie-session"
 PAYLOAD = "my-payload"
+LARGE_PAYLOAD = "x" * 200
 
 ALGORITHMS = {
     "sha1": hashlib.sha1,
@@ -39,6 +43,7 @@ SIGNER_TYPES = [
     "URLSafeTimedSerializer",
 ]
 
+URLSAFE_SIGNERS = {"URLSafeSerializer", "URLSafeTimedSerializer"}
 TIMED_SIGNERS = {"TimestampSigner", "URLSafeTimedSerializer"}
 
 
@@ -58,11 +63,11 @@ def create_signer(signer_type, algorithm, key_derivation):
     raise ValueError(f"Unknown signer type: {signer_type}")
 
 
-def _sign(signer, signer_type):
+def _sign(signer, signer_type, payload):
     if signer_type in ("Signer", "TimestampSigner"):
-        token = signer.sign(PAYLOAD)
+        token = signer.sign(payload)
     else:
-        token = signer.dumps(PAYLOAD)
+        token = signer.dumps(payload)
     if isinstance(token, bytes):
         token = token.decode()
     return token
@@ -84,7 +89,7 @@ def generate():
         for alg_name in ALGORITHMS:
             for kd in KEY_DERIVATIONS:
                 signer = create_signer(signer_type, alg_name, kd)
-                token = _sign(signer, signer_type)
+                token = _sign(signer, signer_type, PAYLOAD)
                 results.append(
                     {
                         "signer": signer_type,
@@ -97,6 +102,51 @@ def generate():
                         "timestamp": FIXED_TIMESTAMP
                         if signer_type in TIMED_SIGNERS
                         else None,
+                    }
+                )
+    return results
+
+
+def generate_compressed():
+    """Generate tokens with a large payload that triggers zlib compression.
+
+    Only URLSafeSerializer and URLSafeTimedSerializer use compression.
+    """
+    results = []
+    for signer_type in sorted(URLSAFE_SIGNERS):
+        for alg_name in sorted(ALGORITHMS):
+            for kd in KEY_DERIVATIONS:
+                signer = create_signer(signer_type, alg_name, kd)
+                token = _sign(signer, signer_type, LARGE_PAYLOAD)
+
+                # Verify the payload part is actually compressed (starts with ".")
+                payload_part = token.split(".")[0] if "." in token else token
+                # For URLSafeTimedSerializer, the first "."-separated part is
+                # the payload (which may start with "." if compressed)
+                # Actually, the token is: payload.timestamp.signature
+                # and payload itself may start with "." if compressed
+                # So the token may start with ".." when compressed
+                is_compressed = token.startswith("..") or (
+                    "." in token
+                    and token.split(".", 2)[0] == ""
+                    and token.count(".") >= 2
+                )
+                # Simpler check: the first base64 char is "."
+                is_compressed = token.startswith(".")
+
+                results.append(
+                    {
+                        "signer": signer_type,
+                        "algorithm": alg_name,
+                        "key_derivation": kd,
+                        "token": token,
+                        "secret": SECRET,
+                        "salt": SALT,
+                        "payload": LARGE_PAYLOAD,
+                        "timestamp": FIXED_TIMESTAMP
+                        if signer_type in TIMED_SIGNERS
+                        else None,
+                        "compressed": is_compressed,
                     }
                 )
     return results
@@ -118,12 +168,14 @@ def verify():
 
 def main():
     if len(sys.argv) < 2:
-        print("Usage: compat.py <generate|verify>", file=sys.stderr)
+        print("Usage: compat.py <generate|generate-compressed|verify>", file=sys.stderr)
         sys.exit(1)
 
     cmd = sys.argv[1]
     if cmd == "generate":
         print(json.dumps(generate()))
+    elif cmd == "generate-compressed":
+        print(json.dumps(generate_compressed()))
     elif cmd == "verify":
         print(json.dumps(verify()))
     else:

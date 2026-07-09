@@ -9,29 +9,110 @@
    See https://itsdangerous.palletsprojects.com/ for more details."
   (:require [exoscale.ex                 :as ex]
             [clojure.data.json           :as json]
+            [clojure.string              :as str]
             [constance.comp              :as comp]
             [exoscale.itsdangerous.hmac  :as hmac]
             [exoscale.itsdangerous.codec :as codec]
-            [exoscale.itsdangerous.spec  :as spec]))
+            [exoscale.itsdangerous.spec  :as spec])
+  (:import [java.io ByteArrayOutputStream]
+           [java.util.zip Deflater Inflater]))
 
 (defn epoch
   "UNIX epoch in seconds"
   []
   (quot (System/currentTimeMillis) 1000))
 
+;; --- Zlib compression (compatible with Python's zlib.compress/decompress) ---
+
+(defn- compress
+  "Compress data using zlib format (compatible with Python's zlib.compress)."
+  [^bytes data]
+  (let [deflater (Deflater.)
+        baos     (ByteArrayOutputStream.)
+        buffer   (byte-array 4096)]
+    (.setInput deflater data)
+    (.finish deflater)
+    (loop []
+      (let [n (.deflate deflater buffer)]
+        (when (> n 0)
+          (.write baos buffer 0 n)
+          (recur))))
+    (.end deflater)
+    (.toByteArray baos)))
+
+(defn- decompress
+  "Decompress zlib-compressed data (compatible with Python's zlib.decompress)."
+  [^bytes data]
+  (let [inflater (Inflater.)
+        baos     (ByteArrayOutputStream.)
+        buffer   (byte-array 4096)]
+    (.setInput inflater data)
+    (loop []
+      (let [n (.inflate inflater buffer)]
+        (when (> n 0)
+          (.write baos buffer 0 n)
+          (recur))))
+    (.end inflater)
+    (.toByteArray baos)))
+
+(defn- compress-if-beneficial
+  "Compress data with zlib if it reduces size.  Returns [compressed? data]."
+  [^bytes data]
+  (let [compressed (compress data)]
+    (if (< (count compressed) (dec (count data)))
+      [true compressed]
+      [false data])))
+
+;; --- Token parsing ---
+
+(def timed-signer-types
+  "Signer types that include a timestamp in the token."
+  #{::timestamp-signer ::url-safe-timed-serializer})
+
 (defn parse-token
-  "Split a ItsDangerous token into its constituent parts.  Returns the
-   raw payload part, optional timestamp part, parsed timestamp, the
-   string to sign, and the signature."
-  [s]
+  "Split a ItsDangerous token into its constituent parts using rsplit-style
+   parsing (matching Python's Signer/TimestampSigner unsign logic).
+
+   The `signer-type` determines whether the token has a timestamp part:
+   - Timed types (`::timestamp-signer`, `::url-safe-timed-serializer`):
+     token = value.timestamp.signature  (3 parts via 2 rsplit-on-dot)
+   - Untimed types (`::signer`, `::url-safe-serializer`):
+     token = value.signature  (2 parts via 1 rsplit-on-dot)
+
+   Returns a map with:
+   - `::payload-part`  — the raw payload part (may start with `.` for compressed)
+   - `::timestamp-part` — the base64 timestamp part, or nil for untimed tokens
+   - `::timestamp`      — the decoded timestamp integer (0 if not present)
+   - `::to-sign`        — the string that was signed (payload part + optional timestamp)
+   - `::signature`      — the signature part"
+  [s signer-type]
   (try
-    (if-let [[_ payload-part timestamp-part signature] (re-matches spec/token-pattern s)]
+    (let [timed? (contains? timed-signer-types signer-type)
+          ;; Split on last dot: everything before is value, after is signature
+          last-dot (.lastIndexOf ^String s ".")
+          _ (when (neg? last-dot)
+              (ex/ex-incorrect! "wrong token format" {::token s}))
+          value (subs s 0 last-dot)
+          sig   (subs s (inc last-dot))
+          ;; For timed types, split value on last dot to extract timestamp
+          [payload-part timestamp-part]
+          (if timed?
+            (let [prev-dot (.lastIndexOf ^String value ".")]
+              (if (neg? prev-dot)
+                (ex/ex-incorrect! "wrong token format (missing timestamp)" {::token s})
+                [(subs value 0 prev-dot) (subs value (inc prev-dot))]))
+            [value nil])
+          timestamp (if timestamp-part
+                      (codec/b64->int timestamp-part)
+                      0)
+          to-sign   (if timestamp-part
+                      (str payload-part "." timestamp-part)
+                      payload-part)]
       {::payload-part   payload-part
        ::timestamp-part timestamp-part
-       ::timestamp      (if (some? timestamp-part) (codec/b64->int timestamp-part) 0)
-       ::to-sign        (cond-> payload-part (some? timestamp-part) (str "." timestamp-part))
-       ::signature      signature}
-      (ex/ex-incorrect! "wrong token format" {::token s}))
+       ::timestamp      timestamp
+       ::to-sign        to-sign
+       ::signature      sig})
     (catch Exception e
       (ex/ex-incorrect! "error while processing token" {::token s} e))))
 
@@ -59,6 +140,33 @@
     (for [key private-keys]
       (signature-for config to-sign key))))
 
+;; --- URL-safe payload encoding (with optional zlib compression) ---
+
+(defn- url-safe-payload-part
+  "Encode payload for URL-safe serializer: JSON-encode, optionally compress,
+   base64-encode.  If compressed, prefix with '.' (matching Python's
+   URLSafeSerializer.dump_payload)."
+  [payload]
+  (let [json-bytes          (.getBytes (json/write-str payload) "UTF-8")
+        [compressed? data]  (compress-if-beneficial json-bytes)
+        b64                 (codec/b->b64 data)]
+    (if compressed?
+      (str "." b64)
+      b64)))
+
+(defn- extract-url-safe-payload
+  "Decode payload from URL-safe serializer token.  If the payload part starts
+   with '.', it's compressed: strip the prefix, base64-decode, decompress,
+   then JSON-parse.  Otherwise just base64-decode and JSON-parse."
+  [payload-part]
+  (let [compressed?  (.startsWith ^String payload-part ".")
+        actual-part  (if compressed? (subs payload-part 1) payload-part)
+        decoded      (codec/b64->b actual-part)
+        json-bytes   (if compressed? (decompress decoded) decoded)]
+    (json/read-str (String. ^bytes json-bytes "UTF-8"))))
+
+;; --- Sign and verify ---
+
 (defn sign
   "Run the signature process for a payload, yields token as a string.
 
@@ -66,10 +174,10 @@
    `::algorithm`, `::salt`, and `::private-key` are shared knowledge elements.
 
    `::signer-type` controls the token format:
-   - `::signer`                  (untimed, raw payload)
-   - `::timestamp-signer`        (timed, raw payload) — default
-   - `::url-safe-serializer`     (untimed, JSON payload)
-   - `::url-safe-timed-serializer` (timed, JSON payload)
+   - `::signer`                   (untimed, raw payload)
+   - `::timestamp-signer`         (timed, raw payload) — default
+   - `::url-safe-serializer`      (untimed, JSON payload, optional zlib compression)
+   - `::url-safe-timed-serializer` (timed, JSON payload, optional zlib compression)
 
    `::key-derivation` defaults to `::django-concat`.
    `::timestamp` defaults to the UNIX epoch in seconds.
@@ -90,10 +198,10 @@
                    (str payload "." (codec/int->b64 timestamp))
 
                    ::url-safe-serializer
-                   (codec/s->b64 (json/write-str payload))
+                   (url-safe-payload-part payload)
 
                    ::url-safe-timed-serializer
-                   (str (codec/s->b64 (json/write-str payload))
+                   (str (url-safe-payload-part payload)
                         "."
                         (codec/int->b64 timestamp)))]
      (str to-sign "." (signature-for config to-sign (main-key config)))))
@@ -118,7 +226,7 @@
              signer-type    ::timestamp-signer}
      :as    config}]
    (ex/assert-spec-valid ::verify-input config)
-   (let [{::keys [payload-part timestamp-part timestamp to-sign signature]} (parse-token token)]
+   (let [{::keys [payload-part timestamp-part timestamp to-sign signature]} (parse-token token signer-type)]
      (when-not (some (partial comp/=== signature)
                      (signatures-for config to-sign))
        (ex/ex-forbidden! "invalid signature"))
@@ -133,10 +241,10 @@
        payload-part
 
        ::url-safe-serializer
-       (json/read-str (codec/b64->s payload-part))
+       (extract-url-safe-payload payload-part)
 
        ::url-safe-timed-serializer
-       (json/read-str (codec/b64->s payload-part)))))
+       (extract-url-safe-payload payload-part))))
   ([config token]
    (verify (assoc config ::token token)))
   ([config token max-age]
