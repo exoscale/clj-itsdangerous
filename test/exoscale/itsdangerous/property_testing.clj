@@ -79,9 +79,10 @@
   (prop/for-all
    [config  (s/gen ::danger/config)
     payload (s/gen ::danger/payload)]
-   (let [other-algorithm (if (= (::danger/algorithm config) ::danger/hmac-sha1)
-                           ::danger/hmac-sha256
-                           ::danger/hmac-sha1)
+   (let [other-algorithm (case (::danger/algorithm config)
+                           ::danger/hmac-sha1 ::danger/hmac-sha256
+                           ::danger/hmac-sha256 ::danger/hmac-sha512
+                           ::danger/hmac-sha512 ::danger/hmac-sha1)
          sign-config (assoc config ::danger/private-key (first (::danger/private-keys config)))
          token (danger/sign sign-config payload)
          verify-config (assoc config

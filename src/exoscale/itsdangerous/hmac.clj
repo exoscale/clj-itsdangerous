@@ -12,14 +12,16 @@
   [algorithm]
   (case algorithm
     :exoscale.itsdangerous/hmac-sha1   "HmacSHA1"
-    :exoscale.itsdangerous/hmac-sha256 "HmacSHA256"))
+    :exoscale.itsdangerous/hmac-sha256 "HmacSHA256"
+    :exoscale.itsdangerous/hmac-sha512 "HmacSHA512"))
 
 (defn hash-algorithm-name
   "Get the hash algorithm name (e.g. 'SHA-1') for a given algorithm keyword."
   [algorithm]
   (case algorithm
     :exoscale.itsdangerous/hmac-sha1   "SHA-1"
-    :exoscale.itsdangerous/hmac-sha256 "SHA-256"))
+    :exoscale.itsdangerous/hmac-sha256 "SHA-256"
+    :exoscale.itsdangerous/hmac-sha512 "SHA-512"))
 
 (defn digest
   "Compute the hash of a byte array using the given algorithm."
