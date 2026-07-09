@@ -126,10 +126,18 @@
     (codec/b->b64 (hmac/hmac-sign algorithm to-sign derived-key))))
 
 (defn- signatures-for
-  "Yield all possible signatures for a to-sign string, based on the config."
-  [{::keys [algorithm salt key-derivation private-keys] :as config} to-sign]
-  (for [key private-keys]
-    (signature-for config to-sign key)))
+  "Yield all possible signatures for a to-sign string, based on the config.
+   Includes fallback algorithm/key-derivation combinations."
+  [{::keys [algorithm salt key-derivation private-keys fallbacks] :as config} to-sign]
+  (let [key-derivation (or key-derivation ::django-concat)
+        primary-config {::algorithm algorithm ::salt salt ::key-derivation key-derivation}
+        fallback-configs (for [fallback fallbacks]
+                           {::algorithm (::algorithm fallback)
+                            ::salt salt
+                            ::key-derivation (or (::key-derivation fallback) key-derivation)})]
+    (for [sig-config (cons primary-config fallback-configs)
+          key private-keys]
+      (signature-for sig-config to-sign key))))
 
 ;; --- URL-safe payload encoding (with optional zlib compression) ---
 

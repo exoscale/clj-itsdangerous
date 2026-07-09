@@ -85,6 +85,25 @@ tokens older than the given age:
 ;; throws if token is older than 1 hour
 ```
 
+### Algorithm and key derivation fallback
+
+When rotating algorithm or key derivation method, old tokens can remain valid by
+providing fallback configurations to `verify`:
+
+``` clojure
+(danger/verify {:exoscale.itsdangerous/algorithm    :exoscale.itsdangerous/hmac-sha256
+                :exoscale.itsdangerous/private-keys ["A-SECRET-KEY"]
+                :exoscale.itsdangerous/salt         "session"
+                :exoscale.itsdangerous/token         token
+                :exoscale.itsdangerous/fallbacks       [{:exoscale.itsdangerous/algorithm :exoscale.itsdangerous/hmac-sha1
+                                                         :exoscale.itsdangerous/key-derivation :exoscale.itsdangerous/django-concat}]})
+```
+
+Each fallback is a map with `:exoscale.itsdangerous/algorithm` (required) and
+optionally `:exoscale.itsdangerous/key-derivation`. Salt and private keys are
+inherited from the primary config. Verification tries the primary config first,
+then fallbacks in order.
+
 `verify` yields the payload on success or throws an exception on failure.
 
 ## Upstream itsdangerous compatibility
