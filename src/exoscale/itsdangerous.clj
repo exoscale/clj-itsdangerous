@@ -17,7 +17,7 @@
   (:import [java.io ByteArrayOutputStream]
            [java.util.zip Deflater Inflater]))
 
-(defn epoch
+(defn- epoch
   "UNIX epoch in seconds"
   []
   (quot (System/currentTimeMillis) 1000))
@@ -65,11 +65,11 @@
 
 ;; --- Token parsing ---
 
-(def timed-signer-types
+(def ^:private timed-signer-types
   "Signer types that include a timestamp in the token."
   #{::timestamp-signer ::url-safe-timed-serializer})
 
-(defn parse-token
+(defn- parse-token
   "Split a ItsDangerous token into its constituent parts using rsplit-style
    parsing (matching Python's Signer/TimestampSigner unsign logic).
 
@@ -116,14 +116,7 @@
     (catch Exception e
       (ex/ex-incorrect! "error while processing token" {::token s} e))))
 
-(defn main-key
-  "Figure out which private-key to use from the config.
-   Support either a single `::private-key` for backward compatibility,
-   or a collection of keys, in which case the first is selected."
-  [{::keys [private-keys private-key]}]
-  (or (first private-keys) private-key))
-
-(defn signature-for
+(defn- signature-for
   "Compute the signature of a to-sign string. Yields the signature in Base64.
 
    Uses the configured algorithm, salt, and key derivation method."
@@ -132,13 +125,11 @@
         derived-key    (hmac/derive-key algorithm key-derivation private-key salt)]
     (codec/b->b64 (hmac/hmac-sign algorithm to-sign derived-key))))
 
-(defn signatures-for
+(defn- signatures-for
   "Yield all possible signatures for a to-sign string, based on the config."
-  [{::keys [algorithm salt key-derivation private-keys private-key] :as config} to-sign]
-  (if (empty? private-keys)
-    [(signature-for config to-sign private-key)]
-    (for [key private-keys]
-      (signature-for config to-sign key))))
+  [{::keys [algorithm salt key-derivation private-keys] :as config} to-sign]
+  (for [key private-keys]
+    (signature-for config to-sign key)))
 
 ;; --- URL-safe payload encoding (with optional zlib compression) ---
 
@@ -170,8 +161,8 @@
 (defn sign
   "Run the signature process for a payload, yields token as a string.
 
-   Needs at least `::algorithm`, `::salt`, `::private-key`, and `::payload`.
-   `::algorithm`, `::salt`, and `::private-key` are shared knowledge elements.
+   Needs at least `::algorithm`, `::salt`, `::private-keys`, and `::payload`.
+   `::algorithm`, `::salt`, and `::private-keys` are shared knowledge elements.
 
    `::signer-type` controls the token format:
    - `::signer`                   (untimed, raw payload)
@@ -181,9 +172,8 @@
 
    `::key-derivation` defaults to `::django-concat`.
    `::timestamp` defaults to the UNIX epoch in seconds.
-   If `::private-keys` is provided instead of `::private-key`, the first key
-   in the collection is used to sign the payload."
-  ([{::keys [algorithm salt key-derivation signer-type timestamp payload]
+   The first key in `::private-keys` is used to sign the payload."
+  ([{::keys [algorithm salt key-derivation signer-type timestamp payload private-keys]
      :or    {algorithm      ::hmac-sha1
              key-derivation ::django-concat
              signer-type    ::timestamp-signer
@@ -204,7 +194,7 @@
                    (str (url-safe-payload-part payload)
                         "."
                         (codec/int->b64 timestamp)))]
-     (str to-sign "." (signature-for config to-sign (main-key config)))))
+     (str to-sign "." (signature-for config to-sign (first private-keys)))))
   ([config payload]
    (sign (assoc config ::payload payload)))
   ([config payload timestamp]
@@ -214,13 +204,13 @@
   "Run verification on a token, throwing if the signature is invalid
    or if the token's validity has expired. Yields the payload upon success.
 
-   Needs at least `::algorithm`, `::salt`, `::private-key`, and `::token`.
+   Needs at least `::algorithm`, `::salt`, `::private-keys`, and `::token`.
    `::signer-type` defaults to `::timestamp-signer`.
    `::key-derivation` defaults to `::django-concat`.
 
    Optionally accepts `::max-age`, in which case token validity in time will be
    checked."
-  ([{::keys [token algorithm salt key-derivation signer-type max-age private-key]
+  ([{::keys [token algorithm salt key-derivation signer-type max-age]
      :or    {algorithm      ::hmac-sha1
              key-derivation ::django-concat
              signer-type    ::timestamp-signer}

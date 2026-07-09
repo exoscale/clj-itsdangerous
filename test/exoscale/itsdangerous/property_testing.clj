@@ -9,9 +9,6 @@
 
 (stest/instrument `danger/sign)
 (stest/instrument `danger/verify)
-(stest/instrument `danger/parse-token)
-(stest/instrument `danger/signature-for)
-(stest/instrument `danger/main-key)
 
 (defspec roundtrip-sign-to-verify
   10000
@@ -38,7 +35,7 @@
   (prop/for-all
    [config  (s/gen ::danger/config)
     payload (s/gen ::danger/payload)]
-   (let [token (danger/sign config payload (dec (danger/epoch)))]
+   (let [token (danger/sign config payload 0)]
      (= [:exoscale.ex/forbidden "token validity expired"]
         (try
           (danger/verify config token 0)
