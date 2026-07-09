@@ -13,11 +13,11 @@
                     :or   {alg :hs1 salt "itsdangerous"}
                     :as   opts}]]
   (danger/sign (cond-> {::danger/algorithm      (get known-algos alg alg)
-                         ::danger/key-derivation ::danger/hmac
-                         ::danger/signer-type    ::danger/timestamp-signer
-                         ::danger/salt           salt
-                         ::danger/private-key    pkey
-                         ::danger/payload        payload}
+                        ::danger/key-derivation ::danger/hmac
+                        ::danger/signer-type    ::danger/timestamp-signer
+                        ::danger/salt           salt
+                        ::danger/private-key    pkey
+                        ::danger/payload        payload}
                  (some? timestamp)
                  (assoc ::danger/timestamp timestamp))))
 
@@ -30,5 +30,5 @@
                           ::danger/salt           salt
                           ::danger/private-key    pkey
                           ::danger/token          input}
-                    (some? max-age)
-                    (assoc ::danger/max-age max-age))))
+                   (some? max-age)
+                   (assoc ::danger/max-age max-age))))

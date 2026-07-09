@@ -51,11 +51,11 @@
    - :django-concat — hash(salt + 'signer' + secret)"
   [algorithm key-derivation secret salt]
   (let [secret-bytes (if (string? secret)
-                        (.getBytes ^String secret "UTF-8")
-                        secret)
+                       (.getBytes ^String secret "UTF-8")
+                       secret)
         salt-bytes (if (string? salt)
-                      (.getBytes ^String salt "UTF-8")
-                      salt)]
+                     (.getBytes ^String salt "UTF-8")
+                     salt)]
     (case key-derivation
       (:hmac :exoscale.itsdangerous/hmac)
       (hmac-sign algorithm salt-bytes secret-bytes)
@@ -84,8 +84,8 @@
    supported algorithm."
   [hmac-type raw-input secret-string]
   (let [algorithm (case hmac-type
-                      "HmacSHA1"   :exoscale.itsdangerous/hmac-sha1
-                      "HmacSHA256" :exoscale.itsdangerous/hmac-sha256)]
+                    "HmacSHA1"   :exoscale.itsdangerous/hmac-sha1
+                    "HmacSHA256" :exoscale.itsdangerous/hmac-sha256)]
     (hmac-sign algorithm raw-input secret-string)))
 
 (def supported-algorithms

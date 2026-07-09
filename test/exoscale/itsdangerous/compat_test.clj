@@ -132,7 +132,7 @@
                                     ::danger/payload        large-payload})
             ;; Verify the token is actually compressed (payload part starts with ".")
             _           (is (-> clj-token
-                                 (.startsWith "."))
+                                (.startsWith "."))
                             (str "token should be compressed: " (pr-str clj-token)))
             result      (python-verify clj-token algorithm key-derivation signer)]
         (is (:valid result)
