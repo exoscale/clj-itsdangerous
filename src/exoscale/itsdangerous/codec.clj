@@ -41,7 +41,7 @@
                       (if (and (< i 7) (zero? (aget arr i)))
                         (recur (inc i))
                         i))]
-           (Arrays/copyOfRange arr ^int start 8))))))
+          (Arrays/copyOfRange arr ^int start 8))))))
 
 (defn bytes->int
   "Get back a 64-bit integer from a variable-length byte-array.

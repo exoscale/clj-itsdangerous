@@ -29,13 +29,13 @@
 (s/def ::d/signatures       (s/coll-of ::d/signature))
 (s/def ::d/to-sign          string?)
 (s/def ::d/parsed-token     (s/keys :req [::d/payload-part ::d/timestamp
-                                           ::d/signature ::d/to-sign]))
+                                          ::d/signature ::d/to-sign]))
 (s/def ::d/config           (s/keys :req [(or ::d/private-key
-                                                ::d/private-keys)
-                                            ::d/salt
-                                            ::d/algorithm]
-                                        :opt [::d/key-derivation
-                                              ::d/signer-type]))
+                                              ::d/private-keys)
+                                          ::d/salt
+                                          ::d/algorithm]
+                                    :opt [::d/key-derivation
+                                          ::d/signer-type]))
 (s/def ::d/verify-input     (s/merge ::d/config
                                      (s/keys :req [::d/token])))
 (s/def ::d/sign-input       (s/merge ::d/config
