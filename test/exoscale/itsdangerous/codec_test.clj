@@ -26,9 +26,9 @@
   (let [config {::danger/algorithm      ::danger/hmac-sha1
                 ::danger/key-derivation ::danger/django-concat
                 ::danger/signer-type    ::danger/timestamp-signer
-                ::danger/private-keys   ["secret"]
+                ::danger/verify-keys    ["secret"]
                 ::danger/salt           "salt"
-                ;; gAAAAA is base64url of 0x80000000 = 2147483648 > Integer/MAX_VALUE
+                 ;; gAAAAA is base64url of 0x80000000 = 2147483648 > Integer/MAX_VALUE
                 ::danger/token          "payload.gAAAAA.invalidsignature"}
         ex (try (danger/verify config)
                 (catch Exception e e))]
@@ -39,9 +39,9 @@
   (let [config {::danger/algorithm      ::danger/hmac-sha1
                 ::danger/key-derivation ::danger/django-concat
                 ::danger/signer-type    ::danger/timestamp-signer
-                ::danger/private-keys   ["secret"]
+                ::danger/verify-keys    ["secret"]
                 ::danger/salt           "salt"
-                ;; AAAAAAAAAAAA is base64url of 9 zero bytes (> 8 bytes)
+                 ;; AAAAAAAAAAAA is base64url of 9 zero bytes (> 8 bytes)
                 ::danger/token          "payload.AAAAAAAAAAAA.invalidsignature"}
         ex (try (danger/verify config)
                 (catch Exception e e))]
@@ -53,7 +53,7 @@
         base-config   {::danger/algorithm      ::danger/hmac-sha1
                        ::danger/key-derivation ::danger/django-concat
                        ::danger/signer-type    ::danger/url-safe-serializer
-                       ::danger/private-key    "secret"
+                       ::danger/sign-key       "secret"
                        ::danger/salt           "salt"
                        ::danger/payload        large-payload}
         token         (danger/sign base-config)]
@@ -61,7 +61,7 @@
       (let [result (danger/verify {::danger/algorithm              ::danger/hmac-sha1
                                    ::danger/key-derivation         ::danger/django-concat
                                    ::danger/signer-type            ::danger/url-safe-serializer
-                                   ::danger/private-keys           ["secret"]
+                                   ::danger/verify-keys            ["secret"]
                                    ::danger/salt                   "salt"
                                    ::danger/token                  token
                                    ::danger/max-size  10000})]
@@ -71,7 +71,7 @@
                  (danger/verify {::danger/algorithm              ::danger/hmac-sha1
                                  ::danger/key-derivation         ::danger/django-concat
                                  ::danger/signer-type            ::danger/url-safe-serializer
-                                 ::danger/private-keys           ["secret"]
+                                 ::danger/verify-keys            ["secret"]
                                  ::danger/salt                   "salt"
                                  ::danger/token                  token
                                  ::danger/max-size  100})
@@ -84,7 +84,7 @@
         base-config  {::danger/algorithm      ::danger/hmac-sha1
                       ::danger/key-derivation ::danger/django-concat
                       ::danger/signer-type    ::danger/url-safe-serializer
-                      ::danger/private-key    "secret"
+                      ::danger/sign-key       "secret"
                       ::danger/salt           "salt"
                       ::danger/payload        huge-payload}
         token        (danger/sign base-config)]
@@ -93,7 +93,7 @@
                  (danger/verify {::danger/algorithm      ::danger/hmac-sha1
                                  ::danger/key-derivation ::danger/django-concat
                                  ::danger/signer-type    ::danger/url-safe-serializer
-                                 ::danger/private-keys   ["secret"]
+                                 ::danger/verify-keys    ["secret"]
                                  ::danger/salt           "salt"
                                  ::danger/token          token})
                  (catch Exception e e))]
@@ -105,7 +105,7 @@
         base-config  {::danger/algorithm      ::danger/hmac-sha1
                       ::danger/key-derivation ::danger/django-concat
                       ::danger/signer-type    ::danger/timestamp-signer
-                      ::danger/private-key    "secret"
+                      ::danger/sign-key       "secret"
                       ::danger/salt           "salt"
                       ::danger/payload        huge-payload}
         token        (danger/sign base-config)]
@@ -114,7 +114,7 @@
                  (danger/verify {::danger/algorithm      ::danger/hmac-sha1
                                  ::danger/key-derivation ::danger/django-concat
                                  ::danger/signer-type    ::danger/timestamp-signer
-                                 ::danger/private-keys   ["secret"]
+                                 ::danger/verify-keys   ["secret"]
                                  ::danger/salt           "salt"
                                  ::danger/token          token})
                  (catch Exception e e))]
