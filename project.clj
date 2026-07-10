@@ -6,6 +6,7 @@
   :dependencies [[org.clojure/clojure "1.12.4"]
                  [org.clojure/data.json "2.5.2"]
                  [exoscale/ex        "0.4.2"]
+                 [exoscale/cloak     "1.0.42"]
                  [spootnik/constance "0.5.4"]]
   :deploy-repositories [["releases" :clojars]
                         ["snapshots" :clojars]]
