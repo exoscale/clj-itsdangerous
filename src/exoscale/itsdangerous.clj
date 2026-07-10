@@ -13,55 +13,13 @@
             [constance.comp              :as comp]
             [exoscale.itsdangerous.hmac  :as hmac]
             [exoscale.itsdangerous.codec :as codec]
-            [exoscale.itsdangerous.spec  :as spec])
-  (:import [java.io ByteArrayOutputStream]
-           [java.util.zip Deflater Inflater]))
+            [exoscale.itsdangerous.zlib  :as zlib]
+            [exoscale.itsdangerous.spec  :as spec]))
 
 (defn- epoch
   "UNIX epoch in seconds"
   []
   (quot (System/currentTimeMillis) 1000))
-
-;; --- Zlib compression (compatible with Python's zlib.compress/decompress) ---
-
-(defn- compress
-  "Compress data using zlib format (compatible with Python's zlib.compress)."
-  [^bytes data]
-  (let [deflater (Deflater.)
-        baos     (ByteArrayOutputStream.)
-        buffer   (byte-array 4096)]
-    (.setInput deflater data)
-    (.finish deflater)
-    (loop []
-      (let [n (.deflate deflater buffer)]
-        (when (> n 0)
-          (.write baos buffer 0 n)
-          (recur))))
-    (.end deflater)
-    (.toByteArray baos)))
-
-(defn- decompress
-  "Decompress zlib-compressed data (compatible with Python's zlib.decompress)."
-  [^bytes data]
-  (let [inflater (Inflater.)
-        baos     (ByteArrayOutputStream.)
-        buffer   (byte-array 4096)]
-    (.setInput inflater data)
-    (loop []
-      (let [n (.inflate inflater buffer)]
-        (when (> n 0)
-          (.write baos buffer 0 n)
-          (recur))))
-    (.end inflater)
-    (.toByteArray baos)))
-
-(defn- compress-if-beneficial
-  "Compress data with zlib if it reduces size.  Returns [compressed? data]."
-  [^bytes data]
-  (let [compressed (compress data)]
-    (if (< (count compressed) (dec (count data)))
-      [true compressed]
-      [false data])))
 
 ;; --- Token parsing ---
 
@@ -147,7 +105,7 @@
    URLSafeSerializer.dump_payload)."
   [payload]
   (let [json-bytes          (.getBytes (json/write-str payload) "UTF-8")
-        [compressed? data]  (compress-if-beneficial json-bytes)
+        [compressed? data]  (zlib/compress-if-beneficial json-bytes)
         b64                 (codec/b->b64 data)]
     (if compressed?
       (str "." b64)
@@ -161,7 +119,7 @@
   (let [compressed?  (.startsWith ^String payload-part ".")
         actual-part  (if compressed? (subs payload-part 1) payload-part)
         decoded      (codec/b64->b actual-part)
-        json-bytes   (if compressed? (decompress decoded) decoded)]
+        json-bytes   (if compressed? (zlib/decompress decoded) decoded)]
     (json/read-str (String. ^bytes json-bytes "UTF-8"))))
 
 ;; --- Sign and verify ---
