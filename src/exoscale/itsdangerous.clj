@@ -122,18 +122,14 @@
   "Decode payload from URL-safe serializer token.  If the payload part starts
    with '.', it's compressed: strip the prefix, base64-decode, decompress,
    then JSON-parse.  Otherwise just base64-decode and JSON-parse."
-  ([payload-part]
-   (extract-url-safe-payload payload-part nil))
-  ([payload-part max-size]
-   (let [compressed?  (.startsWith ^String payload-part ".")
-         actual-part  (if compressed? (subs payload-part 1) payload-part)
-         decoded      (codec/b64->b actual-part)
-         json-bytes   (if compressed?
-                        (if (and max-size (pos? max-size))
-                          (zlib/decompress decoded max-size)
-                          (zlib/decompress decoded))
-                        decoded)]
-     (json/read-str (String. ^bytes json-bytes "UTF-8")))))
+  [payload-part max-size]
+  (let [compressed?  (.startsWith ^String payload-part ".")
+        actual-part  (if compressed? (subs payload-part 1) payload-part)
+        decoded      (codec/b64->b actual-part)
+        json-bytes   (if compressed?
+                       (zlib/decompress decoded max-size)
+                       decoded)]
+    (json/read-str (String. ^bytes json-bytes "UTF-8"))))
 
 ;; --- Sign and verify ---
 
@@ -178,6 +174,10 @@
   ([config payload timestamp]
    (sign (assoc config ::payload payload ::timestamp timestamp))))
 
+(def ^:const default-max-size
+  "Default maximum token size in bytes (1 MB)."
+  1048576)
+
 (defn verify
   "Run verification on a token, throwing if the signature is invalid
    or if the token's validity has expired. Yields the payload upon success.
@@ -188,13 +188,19 @@
 
    Optionally accepts `::max-age`, in which case token validity in time will be
    checked.  Tokens whose timestamp is more than 60 seconds in the future are
-   rejected as well, to tolerate clock skew between emitter and verifier."
-  ([{::keys [token algorithm salt key-derivation signer-type max-age max-decompressed-size]
+   rejected as well, to tolerate clock skew between emitter and verifier.
+
+   `::max-size` controls the maximum token size in bytes (default 1MB).  It
+   also bounds the decompressed payload size for URL-safe serializer types."
+  ([{::keys [token algorithm salt key-derivation signer-type max-age max-size]
      :or    {algorithm      ::hmac-sha1
              key-derivation ::django-concat
-             signer-type    ::timestamp-signer}
+             signer-type    ::timestamp-signer
+             max-size       default-max-size}
      :as    config}]
    (ex/assert-spec-valid ::verify-input config)
+   (when (> (count token) max-size)
+     (ex/ex-forbidden! "token exceeds maximum allowed size" {:max-size max-size}))
    (let [{::keys [payload-part timestamp-part timestamp to-sign signature]} (parse-token token signer-type)]
      (when (or (not (nat-int? timestamp))
                (<= Integer/MAX_VALUE timestamp))
@@ -215,10 +221,10 @@
        payload-part
 
        ::url-safe-serializer
-       (extract-url-safe-payload payload-part max-decompressed-size)
+       (extract-url-safe-payload payload-part max-size)
 
        ::url-safe-timed-serializer
-       (extract-url-safe-payload payload-part max-decompressed-size))))
+       (extract-url-safe-payload payload-part max-size))))
   ([config token]
    (verify (assoc config ::token token)))
   ([config token max-age]

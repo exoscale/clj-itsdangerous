@@ -4,10 +4,6 @@
   (:import [java.io ByteArrayOutputStream]
            [java.util.zip Deflater Inflater DataFormatException]))
 
-(def ^:const default-max-decompressed-size
-  "Default maximum decompressed size in bytes (1 MB)."
-  1048576)
-
 (defn- compress
   "Compress data using zlib format (compatible with Python's zlib.compress)."
   [^bytes data]
@@ -27,24 +23,22 @@
 (defn decompress
   "Decompress zlib-compressed data (compatible with Python's zlib.decompress).
    Throws ::ex/forbidden if the decompressed output exceeds `max-size` bytes."
-  ([^bytes data]
-   (decompress data default-max-decompressed-size))
-  ([^bytes data ^long max-size]
-   (let [inflater (Inflater.)
-         baos     (ByteArrayOutputStream.)
-         buffer   (byte-array 4096)]
-     (.setInput inflater data)
-     (loop [total 0]
-       (let [n (.inflate inflater buffer)]
-         (when (> n 0)
-           (let [new-total (+ total n)]
-             (when (> new-total max-size)
-               (ex/ex-forbidden! "decompressed data exceeds maximum allowed size"
-                                 {:max-size max-size}))
-             (.write baos buffer 0 n)
-             (recur new-total)))))
-     (.end inflater)
-     (.toByteArray baos))))
+  [^bytes data ^long max-size]
+  (let [inflater (Inflater.)
+        baos     (ByteArrayOutputStream.)
+        buffer   (byte-array 4096)]
+    (.setInput inflater data)
+    (loop [total 0]
+      (let [n (.inflate inflater buffer)]
+        (when (> n 0)
+          (let [new-total (+ total n)]
+            (when (> new-total max-size)
+              (ex/ex-forbidden! "decompressed data exceeds maximum allowed size"
+                                {:max-size max-size}))
+            (.write baos buffer 0 n)
+            (recur new-total)))))
+    (.end inflater)
+    (.toByteArray baos)))
 
 (defn compress-if-beneficial
   "Compress data with zlib if it reduces size.  Returns [compressed? data]."

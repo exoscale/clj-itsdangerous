@@ -38,7 +38,7 @@ The library exposes two functions: `sign` and `verify`.
 (danger/verify {:exoscale.itsdangerous/algorithm    :exoscale.itsdangerous/hmac-sha256
                 :exoscale.itsdangerous/private-keys ["A-SECRET-KEY"]
                 :exoscale.itsdangerous/salt         "session"
-                :exoscale.itsdangerous/token         "some-token"})
+                :exoscale.itsdangerous/token        "some-token"})
 ;; => "{\"user-id\": 1234}"
 ```
 
@@ -65,7 +65,7 @@ previous key remain valid:
 (danger/verify {:exoscale.itsdangerous/algorithm    :exoscale.itsdangerous/hmac-sha256
                 :exoscale.itsdangerous/private-keys ["NEW-KEY" "OLD-KEY"]
                 :exoscale.itsdangerous/salt         "session"
-                :exoscale.itsdangerous/token         token})
+                :exoscale.itsdangerous/token        token})
 ```
 
 ### Token validity
@@ -80,27 +80,26 @@ tokens older than the given age:
 (danger/verify {:exoscale.itsdangerous/algorithm    :exoscale.itsdangerous/hmac-sha256
                 :exoscale.itsdangerous/private-keys ["A-SECRET-KEY"]
                 :exoscale.itsdangerous/salt         "session"
-                :exoscale.itsdangerous/token         token
-                :exoscale.itsdangerous/max-age       3600})
+                :exoscale.itsdangerous/token        token
+                :exoscale.itsdangerous/max-age      3600})
 ;; throws if token is older than 1 hour
 ```
 
-### Maximum decompressed size
+### Maximum token size
 
-To protect against decompression bombs, the `url-safe-serializer` and
-`url-safe-timed-serializer` signer types enforce a maximum decompressed
-payload size of 1 MB by default.  Verification will throw if the
-deccompressed payload exceeds this limit.
+To protect against excessively large inputs and decompression bombs, `verify`
+enforces a maximum token size of 1 MB by default.  For `url-safe-serializer`
+and `url-safe-timed-serializer`, this limit also bounds the decompressed
+payload size.  Verification will throw if the token exceeds this limit.
 
-Override the limit with `:exoscale.itsdangerous/max-decompressed-size`
-(in bytes):
+Override the limit with `:exoscale.itsdangerous/max-size` (in bytes):
 
 ``` clojure
 (danger/verify {:exoscale.itsdangerous/algorithm    :exoscale.itsdangerous/hmac-sha256
                 :exoscale.itsdangerous/private-keys ["A-SECRET-KEY"]
                 :exoscale.itsdangerous/salt         "session"
-                :exoscale.itsdangerous/token         token
-                :exoscale.itsdangerous/max-decompressed-size 5242880})
+                :exoscale.itsdangerous/token        token
+                :exoscale.itsdangerous/max-size     5242880})
 ;; allows up to 5 MB
 ```
 
@@ -113,9 +112,9 @@ providing fallback configurations to `verify`:
 (danger/verify {:exoscale.itsdangerous/algorithm    :exoscale.itsdangerous/hmac-sha256
                 :exoscale.itsdangerous/private-keys ["A-SECRET-KEY"]
                 :exoscale.itsdangerous/salt         "session"
-                :exoscale.itsdangerous/token         token
-                :exoscale.itsdangerous/fallbacks       [{:exoscale.itsdangerous/algorithm :exoscale.itsdangerous/hmac-sha1
-                                                         :exoscale.itsdangerous/key-derivation :exoscale.itsdangerous/django-concat}]})
+                :exoscale.itsdangerous/token        token
+                :exoscale.itsdangerous/fallbacks    [{:exoscale.itsdangerous/algorithm :exoscale.itsdangerous/hmac-sha1
+                                                      :exoscale.itsdangerous/key-derivation :exoscale.itsdangerous/django-concat}]})
 ```
 
 Each fallback is a map with `:exoscale.itsdangerous/algorithm` (required) and

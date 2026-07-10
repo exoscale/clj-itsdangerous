@@ -23,7 +23,7 @@
                               ::d/url-safe-timed-serializer})
 (s/def ::d/salt             (s/and string? (complement str/blank?)))
 (s/def ::d/max-age          nat-int?)
-(s/def ::d/max-decompressed-size nat-int?)
+(s/def ::d/max-size         nat-int?)
 (s/def ::d/token            (partial re-matches token-pattern))
 (s/def ::d/timestamp        (s/and nat-int? #(< % Integer/MAX_VALUE)))
 (s/def ::d/signature        (s/and string? (complement str/blank?)))
@@ -42,7 +42,7 @@
                                           ::d/fallbacks]))
 (s/def ::d/verify-input     (s/merge ::d/config
                                      (s/keys :req [::d/token]
-                                             :opt [::d/max-decompressed-size])))
+                                             :opt [::d/max-size])))
 (s/def ::d/sign-config      (s/keys :req [::d/private-key
                                           ::d/salt
                                           ::d/algorithm]
