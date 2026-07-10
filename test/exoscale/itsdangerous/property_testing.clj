@@ -14,7 +14,7 @@
   10000
   (prop/for-all
    [config (s/gen ::danger/config)
-    payload (s/gen ::danger/payload)]
+    payload gen/string]
    (let [sign-config (assoc config ::danger/sign-key (first (::danger/verify-keys config)))
          token (danger/sign sign-config payload)]
      (= payload (danger/verify config token)))))
@@ -23,7 +23,7 @@
   10000
   (prop/for-all
    [config  (s/gen ::danger/config)
-    payload (s/gen ::danger/payload)]
+    payload gen/string]
    (let [sign-config (assoc config ::danger/sign-key (first (::danger/verify-keys config)))
          token (danger/sign sign-config payload 0)]
      (= [:exoscale.ex/forbidden "token validity expired"]
@@ -36,7 +36,7 @@
   10000
   (prop/for-all
    [config  (s/gen ::danger/config)
-    payload (s/gen ::danger/payload)]
+    payload gen/string]
    (let [sign-config (assoc config ::danger/sign-key (first (::danger/verify-keys config)))
          token (danger/sign sign-config payload 0)]
      (= [:exoscale.ex/forbidden "token validity expired"]
@@ -50,7 +50,7 @@
   (prop/for-all
    [base        (s/gen ::danger/config)
     sign-key (s/gen ::danger/sign-key)
-    payload     (s/gen ::danger/payload)]
+    payload     gen/string]
    (let [good-config (assoc base ::danger/verify-keys [sign-key])
          bad-config  (assoc base ::danger/verify-keys [(str sign-key "f")])
          sign-config (assoc good-config ::danger/sign-key (first (::danger/verify-keys good-config)))
@@ -65,7 +65,7 @@
   10000
   (prop/for-all
    [config  (s/gen ::danger/config)
-    payload (s/gen ::danger/payload)]
+    payload gen/string]
    (let [sign-config (assoc config ::danger/sign-key (first (::danger/verify-keys config)))
          token (danger/sign sign-config payload)]
      (= [:exoscale.ex/forbidden "invalid signature"]
@@ -78,7 +78,7 @@
   10000
   (prop/for-all
    [config  (s/gen ::danger/config)
-    payload (s/gen ::danger/payload)]
+    payload gen/string]
    (let [other-algorithm (case (::danger/algorithm config)
                            ::danger/hmac-sha1 ::danger/hmac-sha256
                            ::danger/hmac-sha256 ::danger/hmac-sha512
