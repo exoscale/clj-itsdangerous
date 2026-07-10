@@ -174,20 +174,23 @@
    `::key-derivation` defaults to `::django-concat`.
 
    Optionally accepts `::max-age`, in which case token validity in time will be
-   checked."
-  ([{::keys [token algorithm salt key-derivation signer-type max-age]
-     :or    {algorithm      ::hmac-sha1
-             key-derivation ::django-concat
-             signer-type    ::timestamp-signer}
-     :as    config}]
-   (ex/assert-spec-valid ::verify-input config)
-   (let [{::keys [payload-part timestamp-part timestamp to-sign signature]} (parse-token token signer-type)]
-     (when-not (some (partial comp/=== signature)
-                     (signatures-for config to-sign))
-       (ex/ex-forbidden! "invalid signature"))
-     (when (and (some? max-age)
-                (< max-age (- (epoch) timestamp)))
-       (ex/ex-forbidden! "token validity expired"))
+   checked.  Tokens whose timestamp is more than 60 seconds in the future are
+   rejected as well, to tolerate clock skew between emitter and verifier."
+   ([{::keys [token algorithm salt key-derivation signer-type max-age]
+      :or    {algorithm      ::hmac-sha1
+              key-derivation ::django-concat
+              signer-type    ::timestamp-signer}
+      :as    config}]
+    (ex/assert-spec-valid ::verify-input config)
+    (let [{::keys [payload-part timestamp-part timestamp to-sign signature]} (parse-token token signer-type)]
+      (when-not (some (partial comp/=== signature)
+                      (signatures-for config to-sign))
+        (ex/ex-forbidden! "invalid signature"))
+      (let [age (- (epoch) timestamp)]
+        (when (and (some? max-age)
+                   (or (< age -60)
+                       (< max-age age)))
+          (ex/ex-forbidden! "token validity expired")))
      (case signer-type
        ::signer
        payload-part
