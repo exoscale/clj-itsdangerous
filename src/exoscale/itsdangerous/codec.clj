@@ -49,11 +49,13 @@
   [^bytes input]
   (if (zero? (count input))
     0
-    (let [buf (ByteBuffer/allocate 8)]
-      (.position buf (- 8 (count input)))
-      (.put buf input)
-      (.flip buf)
-      (.getLong buf))))
+    (if (> (count input) 8)
+      (throw (ex-info "invalid timestamp" {:type :exoscale.itsdangerous/invalid-timestamp}))
+      (let [buf (ByteBuffer/allocate 8)]
+        (.position buf (- 8 (count input)))
+        (.put buf input)
+        (.flip buf)
+        (.getLong buf)))))
 
 (defn int->b64
   "Convert an integer to a URL encoded Base64 string."

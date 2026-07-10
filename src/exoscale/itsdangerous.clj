@@ -79,7 +79,9 @@
        ::to-sign        to-sign
        ::signature      sig})
     (catch Exception e
-      (ex/ex-incorrect! "error while processing token" {::token s} e))))
+      (if (= :exoscale.itsdangerous/invalid-timestamp (:type (ex-data e)))
+        (ex/ex-forbidden! "invalid timestamp")
+        (ex/ex-incorrect! "error while processing token" {::token s} e)))))
 
 (defn- signature-for
   "Compute the signature of a to-sign string. Yields the signature in Base64.
