@@ -45,8 +45,8 @@ The library exposes two functions: `sign` and `verify`.
 ### Configuration parameters
 
 - `:exoscale.itsdangerous/algorithm` — `:exoscale.itsdangerous/hmac-sha1` (default), `:exoscale.itsdangerous/hmac-sha256`, or `:exoscale.itsdangerous/hmac-sha512`
-- `:exoscale.itsdangerous/sign-key` — a secret string used to sign tokens (required for `sign`)
-- `:exoscale.itsdangerous/verify-keys` — a collection of secret strings. All keys are tried when verifying, allowing seamless key rotation (required for `verify`).
+- `:exoscale.itsdangerous/sign-key` — a secret string or `exoscale.cloak` masked secret used to sign tokens (required for `sign`)
+- `:exoscale.itsdangerous/verify-keys` — a collection of secret strings or `exoscale.cloak` masked secrets. All keys are tried when verifying, allowing seamless key rotation (required for `verify`).
 - `:exoscale.itsdangerous/salt` — a non-empty string to namespace tokens
 - `:exoscale.itsdangerous/signer-type` — controls the token format:
   - `:exoscale.itsdangerous/signer` — raw payload, no timestamp
@@ -54,6 +54,8 @@ The library exposes two functions: `sign` and `verify`.
   - `:exoscale.itsdangerous/url-safe-serializer` — JSON payload, optional zlib compression, no timestamp
   - `:exoscale.itsdangerous/url-safe-timed-serializer` — JSON payload, optional zlib compression, with timestamp
 - `:exoscale.itsdangerous/key-derivation` — `:exoscale.itsdangerous/django-concat` (default), `:exoscale.itsdangerous/hmac`, or `:exoscale.itsdangerous/concat`
+
+Masked secrets are unmasked transparently before use; `unmask` is idempotent and safe to call on plain values.
 
 ### Key rotation
 

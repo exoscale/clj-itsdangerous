@@ -12,7 +12,9 @@
   #".*\..+")
 
 (s/def ::d/payload          string?)
-(s/def ::d/sign-key      (s/and string? (complement str/blank?)))
+(s/def ::d/sign-key
+  (s/with-gen (complement nil?)
+    #(s/gen (s/and string? (complement str/blank?)))))
 (s/def ::d/verify-keys   (s/and (s/coll-of ::d/sign-key)
                                 (complement empty?)))
 (s/def ::d/algorithm        #{::d/hmac-sha1 ::d/hmac-sha256 ::d/hmac-sha512})

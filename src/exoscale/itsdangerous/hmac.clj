@@ -1,7 +1,8 @@
 (ns exoscale.itsdangerous.hmac
   "JavaSE based implementation of hashed based message
    authentication."
-  (:require [exoscale.ex :as ex])
+  (:require [exoscale.ex :as ex]
+            [exoscale.cloak :as cloak])
   (:import java.security.MessageDigest
            javax.crypto.Mac
            javax.crypto.spec.SecretKeySpec))
@@ -49,7 +50,8 @@
    - :concat        — hash(salt + secret)
    - :django-concat — hash(salt + 'signer' + secret)"
   [algorithm key-derivation secret salt]
-  (let [secret-bytes (if (string? secret)
+  (let [secret       (cloak/unmask secret)
+        secret-bytes (if (string? secret)
                        (.getBytes ^String secret "UTF-8")
                        secret)
         salt-bytes (if (string? salt)

@@ -6,7 +6,8 @@
             [clojure.spec.alpha              :as s]
             [exoscale.itsdangerous           :as danger]
             [exoscale.itsdangerous.codec     :as codec]
-            [exoscale.itsdangerous.spec]))
+            [exoscale.itsdangerous.spec]
+            [exoscale.cloak :as cloak]))
 
 (defspec integer-conversion
   100000
@@ -120,3 +121,46 @@
                  (catch Exception e e))]
         (is (not (nil? ex)) "should have thrown")
         (is (= :exoscale.ex/forbidden (:type (ex-data ex))))))))
+
+(deftest sign-and-verify-with-cloak-masked-secrets
+  (testing "round-trip with masked sign-key and verify-keys"
+    (let [secret (cloak/mask "secret")
+          payload "my-payload"
+          token (danger/sign {::danger/algorithm      ::danger/hmac-sha256
+                              ::danger/key-derivation ::danger/django-concat
+                              ::danger/signer-type    ::danger/timestamp-signer
+                              ::danger/sign-key       secret
+                              ::danger/salt           "salt"
+                              ::danger/payload        payload})]
+      (is (string? token))
+      (is (= payload (danger/verify {::danger/algorithm      ::danger/hmac-sha256
+                                     ::danger/key-derivation ::danger/django-concat
+                                     ::danger/signer-type    ::danger/timestamp-signer
+                                     ::danger/verify-keys    [secret]
+                                     ::danger/salt           "salt"
+                                     ::danger/token          token})))))
+  (testing "mixed plain and masked keys in verify-keys"
+    (let [masked (cloak/mask "secret")
+          token  (danger/sign {::danger/algorithm      ::danger/hmac-sha256
+                               ::danger/key-derivation ::danger/django-concat
+                               ::danger/signer-type    ::danger/signer
+                               ::danger/sign-key       masked
+                               ::danger/salt           "salt"
+                               ::danger/payload        "data"})]
+      (is (= "data" (danger/verify {::danger/algorithm      ::danger/hmac-sha256
+                                    ::danger/key-derivation ::danger/django-concat
+                                    ::danger/signer-type    ::danger/signer
+                                    ::danger/verify-keys    ["secret"]
+                                    ::danger/salt           "salt"
+                                    ::danger/token          token})))))
+  (testing "plain keys still work (unmask is idempotent)"
+    (let [token (danger/sign {::danger/algorithm      ::danger/hmac-sha1
+                              ::danger/key-derivation ::danger/django-concat
+                              ::danger/sign-key       "plain-secret"
+                              ::danger/salt           "salt"
+                              ::danger/payload        "x"})]
+      (is (= "x" (danger/verify {::danger/algorithm      ::danger/hmac-sha1
+                                 ::danger/key-derivation ::danger/django-concat
+                                 ::danger/verify-keys    ["plain-secret"]
+                                 ::danger/salt           "salt"
+                                 ::danger/token          token}))))))
