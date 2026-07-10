@@ -122,12 +122,18 @@
   "Decode payload from URL-safe serializer token.  If the payload part starts
    with '.', it's compressed: strip the prefix, base64-decode, decompress,
    then JSON-parse.  Otherwise just base64-decode and JSON-parse."
-  [payload-part]
-  (let [compressed?  (.startsWith ^String payload-part ".")
-        actual-part  (if compressed? (subs payload-part 1) payload-part)
-        decoded      (codec/b64->b actual-part)
-        json-bytes   (if compressed? (zlib/decompress decoded) decoded)]
-    (json/read-str (String. ^bytes json-bytes "UTF-8"))))
+  ([payload-part]
+   (extract-url-safe-payload payload-part nil))
+  ([payload-part max-size]
+   (let [compressed?  (.startsWith ^String payload-part ".")
+         actual-part  (if compressed? (subs payload-part 1) payload-part)
+         decoded      (codec/b64->b actual-part)
+         json-bytes   (if compressed?
+                        (if (and max-size (pos? max-size))
+                          (zlib/decompress decoded max-size)
+                          (zlib/decompress decoded))
+                        decoded)]
+     (json/read-str (String. ^bytes json-bytes "UTF-8")))))
 
 ;; --- Sign and verify ---
 
@@ -183,7 +189,7 @@
    Optionally accepts `::max-age`, in which case token validity in time will be
    checked.  Tokens whose timestamp is more than 60 seconds in the future are
    rejected as well, to tolerate clock skew between emitter and verifier."
-  ([{::keys [token algorithm salt key-derivation signer-type max-age]
+  ([{::keys [token algorithm salt key-derivation signer-type max-age max-decompressed-size]
      :or    {algorithm      ::hmac-sha1
              key-derivation ::django-concat
              signer-type    ::timestamp-signer}
@@ -209,10 +215,10 @@
        payload-part
 
        ::url-safe-serializer
-       (extract-url-safe-payload payload-part)
+       (extract-url-safe-payload payload-part max-decompressed-size)
 
        ::url-safe-timed-serializer
-       (extract-url-safe-payload payload-part))))
+       (extract-url-safe-payload payload-part max-decompressed-size))))
   ([config token]
    (verify (assoc config ::token token)))
   ([config token max-age]

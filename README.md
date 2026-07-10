@@ -85,6 +85,25 @@ tokens older than the given age:
 ;; throws if token is older than 1 hour
 ```
 
+### Maximum decompressed size
+
+To protect against decompression bombs, the `url-safe-serializer` and
+`url-safe-timed-serializer` signer types enforce a maximum decompressed
+payload size of 1 MB by default.  Verification will throw if the
+deccompressed payload exceeds this limit.
+
+Override the limit with `:exoscale.itsdangerous/max-decompressed-size`
+(in bytes):
+
+``` clojure
+(danger/verify {:exoscale.itsdangerous/algorithm    :exoscale.itsdangerous/hmac-sha256
+                :exoscale.itsdangerous/private-keys ["A-SECRET-KEY"]
+                :exoscale.itsdangerous/salt         "session"
+                :exoscale.itsdangerous/token         token
+                :exoscale.itsdangerous/max-decompressed-size 5242880})
+;; allows up to 5 MB
+```
+
 ### Algorithm and key derivation fallback
 
 When rotating algorithm or key derivation method, old tokens can remain valid by
