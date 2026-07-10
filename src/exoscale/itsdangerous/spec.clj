@@ -12,9 +12,9 @@
   #".*\..+")
 
 (s/def ::d/payload          string?)
-(s/def ::d/private-key      (s/and string? (complement str/blank?)))
-(s/def ::d/private-keys     (s/and (s/coll-of ::d/private-key)
-                                   (complement empty?)))
+(s/def ::d/sign-key      (s/and string? (complement str/blank?)))
+(s/def ::d/verify-keys   (s/and (s/coll-of ::d/sign-key)
+                                (complement empty?)))
 (s/def ::d/algorithm        #{::d/hmac-sha1 ::d/hmac-sha256 ::d/hmac-sha512})
 (s/def ::d/key-derivation   #{::d/hmac ::d/concat ::d/django-concat})
 (s/def ::d/signer-type      #{::d/signer
@@ -34,7 +34,7 @@
 (s/def ::d/fallback         (s/keys :req [::d/algorithm]
                                     :opt [::d/key-derivation]))
 (s/def ::d/fallbacks        (s/coll-of ::d/fallback))
-(s/def ::d/config           (s/keys :req [::d/private-keys
+(s/def ::d/config           (s/keys :req [::d/verify-keys
                                           ::d/salt
                                           ::d/algorithm]
                                     :opt [::d/key-derivation
@@ -43,7 +43,7 @@
 (s/def ::d/verify-input     (s/merge ::d/config
                                      (s/keys :req [::d/token]
                                              :opt [::d/max-size])))
-(s/def ::d/sign-config      (s/keys :req [::d/private-key
+(s/def ::d/sign-config      (s/keys :req [::d/sign-key
                                           ::d/salt
                                           ::d/algorithm]
                                     :opt [::d/key-derivation

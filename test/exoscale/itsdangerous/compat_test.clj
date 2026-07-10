@@ -78,7 +78,7 @@
       (let [config {::danger/algorithm      (algorithm-map (:algorithm spec))
                     ::danger/key-derivation (key-derivation-map (:key_derivation spec))
                     ::danger/signer-type    (signer-type-map (:signer spec))
-                    ::danger/private-keys [(:secret spec)]
+                    ::danger/verify-keys [(:secret spec)]
                     ::danger/salt           (:salt spec)
                     ::danger/token          (:token spec)}
             result (try
@@ -106,7 +106,7 @@
       (let [config {::danger/algorithm      (algorithm-map (:algorithm spec))
                     ::danger/key-derivation (key-derivation-map (:key_derivation spec))
                     ::danger/signer-type    (signer-type-map (:signer spec))
-                    ::danger/private-keys [(:secret spec)]
+                    ::danger/verify-keys [(:secret spec)]
                     ::danger/salt           (:salt spec)
                     ::danger/token          (:token spec)}
             result (try
@@ -128,7 +128,7 @@
       (let [clj-token (danger/sign {::danger/algorithm      (algorithm-map algorithm)
                                     ::danger/key-derivation (key-derivation-map key-derivation)
                                     ::danger/signer-type    (signer-type-map signer)
-                                    ::danger/private-key secret
+                                    ::danger/sign-key secret
                                     ::danger/salt           salt
                                     ::danger/payload        large-payload})
             ;; Verify the token is actually compressed (payload part starts with ".")

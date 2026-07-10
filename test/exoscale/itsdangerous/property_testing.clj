@@ -15,7 +15,7 @@
   (prop/for-all
    [config (s/gen ::danger/config)
     payload (s/gen ::danger/payload)]
-   (let [sign-config (assoc config ::danger/private-key (first (::danger/private-keys config)))
+   (let [sign-config (assoc config ::danger/sign-key (first (::danger/verify-keys config)))
          token (danger/sign sign-config payload)]
      (= payload (danger/verify config token)))))
 
@@ -24,7 +24,7 @@
   (prop/for-all
    [config  (s/gen ::danger/config)
     payload (s/gen ::danger/payload)]
-   (let [sign-config (assoc config ::danger/private-key (first (::danger/private-keys config)))
+   (let [sign-config (assoc config ::danger/sign-key (first (::danger/verify-keys config)))
          token (danger/sign sign-config payload 0)]
      (= [:exoscale.ex/forbidden "token validity expired"]
         (try
@@ -37,7 +37,7 @@
   (prop/for-all
    [config  (s/gen ::danger/config)
     payload (s/gen ::danger/payload)]
-   (let [sign-config (assoc config ::danger/private-key (first (::danger/private-keys config)))
+   (let [sign-config (assoc config ::danger/sign-key (first (::danger/verify-keys config)))
          token (danger/sign sign-config payload 0)]
      (= [:exoscale.ex/forbidden "token validity expired"]
         (try
@@ -45,15 +45,15 @@
           (catch Exception e
             [(:type (ex-data e)) (ex-message e)]))))))
 
-(defspec token-signature-is-enforced-private-key-variant
+(defspec token-signature-is-enforced-sign-key-variant
   10000
   (prop/for-all
    [base        (s/gen ::danger/config)
-    private-key (s/gen ::danger/private-key)
+    sign-key (s/gen ::danger/sign-key)
     payload     (s/gen ::danger/payload)]
-   (let [good-config (assoc base ::danger/private-keys [private-key])
-         bad-config  (assoc base ::danger/private-keys [(str private-key "f")])
-         sign-config (assoc good-config ::danger/private-key (first (::danger/private-keys good-config)))
+   (let [good-config (assoc base ::danger/verify-keys [sign-key])
+         bad-config  (assoc base ::danger/verify-keys [(str sign-key "f")])
+         sign-config (assoc good-config ::danger/sign-key (first (::danger/verify-keys good-config)))
          token       (danger/sign sign-config payload)]
      (= [:exoscale.ex/forbidden "invalid signature"]
         (try
@@ -66,7 +66,7 @@
   (prop/for-all
    [config  (s/gen ::danger/config)
     payload (s/gen ::danger/payload)]
-   (let [sign-config (assoc config ::danger/private-key (first (::danger/private-keys config)))
+   (let [sign-config (assoc config ::danger/sign-key (first (::danger/verify-keys config)))
          token (danger/sign sign-config payload)]
      (= [:exoscale.ex/forbidden "invalid signature"]
         (try
@@ -83,7 +83,7 @@
                            ::danger/hmac-sha1 ::danger/hmac-sha256
                            ::danger/hmac-sha256 ::danger/hmac-sha512
                            ::danger/hmac-sha512 ::danger/hmac-sha1)
-         sign-config (assoc config ::danger/private-key (first (::danger/private-keys config)))
+         sign-config (assoc config ::danger/sign-key (first (::danger/verify-keys config)))
          token (danger/sign sign-config payload)
          verify-config (assoc config
                               ::danger/algorithm other-algorithm

@@ -29,24 +29,24 @@ The library exposes two functions: `sign` and `verify`.
 ``` clojure
 (require '[exoscale.itsdangerous :as danger])
 
-(danger/sign {:exoscale.itsdangerous/algorithm    :exoscale.itsdangerous/hmac-sha256
-              :exoscale.itsdangerous/private-key  "A-SECRET-KEY"
-              :exoscale.itsdangerous/salt         "session"
-              :exoscale.itsdangerous/payload      "{\"user-id\": 1234}"})
+(danger/sign {:exoscale.itsdangerous/algorithm :exoscale.itsdangerous/hmac-sha256
+              :exoscale.itsdangerous/sign-key  "A-SECRET-KEY"
+              :exoscale.itsdangerous/salt      "session"
+              :exoscale.itsdangerous/payload   "{\"user-id\": 1234}"})
 ;; => "some-token"
 
-(danger/verify {:exoscale.itsdangerous/algorithm    :exoscale.itsdangerous/hmac-sha256
-                :exoscale.itsdangerous/private-keys ["A-SECRET-KEY"]
-                :exoscale.itsdangerous/salt         "session"
-                :exoscale.itsdangerous/token        "some-token"})
+(danger/verify {:exoscale.itsdangerous/algorithm   :exoscale.itsdangerous/hmac-sha256
+                :exoscale.itsdangerous/verify-keys ["A-SECRET-KEY"]
+                :exoscale.itsdangerous/salt        "session"
+                :exoscale.itsdangerous/token       "some-token"})
 ;; => "{\"user-id\": 1234}"
 ```
 
 ### Configuration parameters
 
 - `:exoscale.itsdangerous/algorithm` — `:exoscale.itsdangerous/hmac-sha1` (default), `:exoscale.itsdangerous/hmac-sha256`, or `:exoscale.itsdangerous/hmac-sha512`
-- `:exoscale.itsdangerous/private-key` — a secret string used to sign tokens (required for `sign`)
-- `:exoscale.itsdangerous/private-keys` — a collection of secret strings. All keys are tried when verifying, allowing seamless key rotation (required for `verify`).
+- `:exoscale.itsdangerous/sign-key` — a secret string used to sign tokens (required for `sign`)
+- `:exoscale.itsdangerous/verify-keys` — a collection of secret strings. All keys are tried when verifying, allowing seamless key rotation (required for `verify`).
 - `:exoscale.itsdangerous/salt` — a non-empty string to namespace tokens
 - `:exoscale.itsdangerous/signer-type` — controls the token format:
   - `:exoscale.itsdangerous/signer` — raw payload, no timestamp
@@ -57,15 +57,15 @@ The library exposes two functions: `sign` and `verify`.
 
 ### Key rotation
 
-Provide multiple keys in `:exoscale.itsdangerous/private-keys`. The first key
+Provide multiple keys in `:exoscale.itsdangerous/verify-keys`. The first key
 signs new tokens. Verification tries all keys, so old tokens signed with a
 previous key remain valid:
 
 ``` clojure
-(danger/verify {:exoscale.itsdangerous/algorithm    :exoscale.itsdangerous/hmac-sha256
-                :exoscale.itsdangerous/private-keys ["NEW-KEY" "OLD-KEY"]
-                :exoscale.itsdangerous/salt         "session"
-                :exoscale.itsdangerous/token        token})
+(danger/verify {:exoscale.itsdangerous/algorithm   :exoscale.itsdangerous/hmac-sha256
+                :exoscale.itsdangerous/verify-keys ["NEW-KEY" "OLD-KEY"]
+                :exoscale.itsdangerous/salt        "session"
+                :exoscale.itsdangerous/token       token})
 ```
 
 ### Token validity
@@ -77,11 +77,11 @@ When verifying, pass `:exoscale.itsdangerous/max-age` (in seconds) to reject
 tokens older than the given age:
 
 ``` clojure
-(danger/verify {:exoscale.itsdangerous/algorithm    :exoscale.itsdangerous/hmac-sha256
-                :exoscale.itsdangerous/private-keys ["A-SECRET-KEY"]
-                :exoscale.itsdangerous/salt         "session"
-                :exoscale.itsdangerous/token        token
-                :exoscale.itsdangerous/max-age      3600})
+(danger/verify {:exoscale.itsdangerous/algorithm   :exoscale.itsdangerous/hmac-sha256
+                :exoscale.itsdangerous/verify-keys ["A-SECRET-KEY"]
+                :exoscale.itsdangerous/salt        "session"
+                :exoscale.itsdangerous/token       token
+                :exoscale.itsdangerous/max-age     3600})
 ;; throws if token is older than 1 hour
 ```
 
@@ -95,11 +95,11 @@ payload size.  Verification will throw if the token exceeds this limit.
 Override the limit with `:exoscale.itsdangerous/max-size` (in bytes):
 
 ``` clojure
-(danger/verify {:exoscale.itsdangerous/algorithm    :exoscale.itsdangerous/hmac-sha256
-                :exoscale.itsdangerous/private-keys ["A-SECRET-KEY"]
-                :exoscale.itsdangerous/salt         "session"
-                :exoscale.itsdangerous/token        token
-                :exoscale.itsdangerous/max-size     5242880})
+(danger/verify {:exoscale.itsdangerous/algorithm   :exoscale.itsdangerous/hmac-sha256
+                :exoscale.itsdangerous/verify-keys ["A-SECRET-KEY"]
+                :exoscale.itsdangerous/salt        "session"
+                :exoscale.itsdangerous/token       token
+                :exoscale.itsdangerous/max-size    5242880})
 ;; allows up to 5 MB
 ```
 
@@ -109,12 +109,12 @@ When rotating algorithm or key derivation method, old tokens can remain valid by
 providing fallback configurations to `verify`:
 
 ``` clojure
-(danger/verify {:exoscale.itsdangerous/algorithm    :exoscale.itsdangerous/hmac-sha256
-                :exoscale.itsdangerous/private-keys ["A-SECRET-KEY"]
-                :exoscale.itsdangerous/salt         "session"
-                :exoscale.itsdangerous/token        token
-                :exoscale.itsdangerous/fallbacks    [{:exoscale.itsdangerous/algorithm :exoscale.itsdangerous/hmac-sha1
-                                                      :exoscale.itsdangerous/key-derivation :exoscale.itsdangerous/django-concat}]})
+(danger/verify {:exoscale.itsdangerous/algorithm   :exoscale.itsdangerous/hmac-sha256
+                :exoscale.itsdangerous/verify-keys ["A-SECRET-KEY"]
+                :exoscale.itsdangerous/salt        "session"
+                :exoscale.itsdangerous/token       token
+                :exoscale.itsdangerous/fallbacks   [{:exoscale.itsdangerous/algorithm :exoscale.itsdangerous/hmac-sha1
+                                                     :exoscale.itsdangerous/key-derivation :exoscale.itsdangerous/django-concat}]})
 ```
 
 Each fallback is a map with `:exoscale.itsdangerous/algorithm` (required) and

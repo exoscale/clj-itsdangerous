@@ -87,15 +87,15 @@
   "Compute the signature of a to-sign string. Yields the signature in Base64.
 
    Uses the configured algorithm, salt, and key derivation method."
-  [{::keys [algorithm salt key-derivation] :as config} to-sign private-key]
+  [{::keys [algorithm salt key-derivation] :as config} to-sign sign-key]
   (let [key-derivation (or key-derivation ::django-concat)
-        derived-key    (hmac/derive-key algorithm key-derivation private-key salt)]
+        derived-key    (hmac/derive-key algorithm key-derivation sign-key salt)]
     (codec/b->b64 (hmac/hmac-sign algorithm to-sign derived-key))))
 
 (defn- signatures-for
   "Yield all possible signatures for a to-sign string, based on the config.
    Includes fallback algorithm/key-derivation combinations."
-  [{::keys [algorithm salt key-derivation private-keys fallbacks] :as config} to-sign]
+  [{::keys [algorithm salt key-derivation verify-keys fallbacks] :as config} to-sign]
   (let [key-derivation (or key-derivation ::django-concat)
         primary-config {::algorithm algorithm ::salt salt ::key-derivation key-derivation}
         fallback-configs (for [fallback fallbacks]
@@ -103,7 +103,7 @@
                             ::salt salt
                             ::key-derivation (or (::key-derivation fallback) key-derivation)})]
     (for [sig-config (cons primary-config fallback-configs)
-          key private-keys]
+          key verify-keys]
       (signature-for sig-config to-sign key))))
 
 ;; --- URL-safe payload encoding (with optional zlib compression) ---
@@ -138,8 +138,8 @@
 (defn sign
   "Run the signature process for a payload, yields token as a string.
 
-  Needs at least `::algorithm`, `::salt`, `::private-key`, and `::payload`.
-   `::algorithm`, `::salt`, and `::private-key` are shared knowledge elements.
+  Needs at least `::algorithm`, `::salt`, `::sign-key`, and `::payload`.
+   `::algorithm`, `::salt`, and `::sign-key` are shared knowledge elements.
 
    `::signer-type` controls the token format:
    - `::signer`                   (untimed, raw payload)
@@ -149,7 +149,7 @@
 
    `::key-derivation` defaults to `::django-concat`.
    `::timestamp` defaults to the UNIX epoch in seconds."
-  ([{::keys [algorithm salt key-derivation signer-type timestamp payload private-key]
+  ([{::keys [algorithm salt key-derivation signer-type timestamp payload sign-key]
      :or    {algorithm      ::hmac-sha1
              key-derivation ::django-concat
              signer-type    ::timestamp-signer
@@ -170,7 +170,7 @@
                    (str (url-safe-payload-part payload)
                         "."
                         (codec/int->b64 timestamp)))]
-     (str to-sign "." (signature-for config to-sign private-key))))
+     (str to-sign "." (signature-for config to-sign sign-key))))
   ([config payload]
    (sign (assoc config ::payload payload)))
   ([config payload timestamp]
@@ -184,7 +184,7 @@
   "Run verification on a token, throwing if the signature is invalid
    or if the token's validity has expired. Yields the payload upon success.
 
-   Needs at least `::algorithm`, `::salt`, `::private-keys`, and `::token`.
+   Needs at least `::algorithm`, `::salt`, `::verify-keys`, and `::token`.
    `::signer-type` defaults to `::timestamp-signer`.
    `::key-derivation` defaults to `::django-concat`.
 
