@@ -44,7 +44,7 @@
                                    ::danger/private-keys           ["secret"]
                                    ::danger/salt                   "salt"
                                    ::danger/token                  token
-                                   ::danger/max-decompressed-size  10000})]
+                                   ::danger/max-size  10000})]
         (is (= large-payload result))))
     (testing "decompression over limit throws"
       (let [ex (try
@@ -54,12 +54,12 @@
                                  ::danger/private-keys           ["secret"]
                                  ::danger/salt                   "salt"
                                  ::danger/token                  token
-                                 ::danger/max-decompressed-size  100})
+                                 ::danger/max-size  100})
                  (catch Exception e e))]
         (is (not (nil? ex)) "should have thrown")
         (is (= :exoscale.ex/forbidden (:type (ex-data ex))))))))
 
-(deftest default-max-decompressed-size-enforced
+(deftest default-max-size-enforced
   (let [huge-payload (apply str (repeat 1100000 "x"))
         base-config  {::danger/algorithm      ::danger/hmac-sha1
                       ::danger/key-derivation ::danger/django-concat
@@ -68,11 +68,32 @@
                       ::danger/salt           "salt"
                       ::danger/payload        huge-payload}
         token        (danger/sign base-config)]
-    (testing "default 1MB limit is enforced without explicit max-decompressed-size"
+    (testing "default 1MB limit is enforced for decompression without explicit max-size"
       (let [ex (try
                  (danger/verify {::danger/algorithm      ::danger/hmac-sha1
                                  ::danger/key-derivation ::danger/django-concat
                                  ::danger/signer-type    ::danger/url-safe-serializer
+                                 ::danger/private-keys   ["secret"]
+                                 ::danger/salt           "salt"
+                                 ::danger/token          token})
+                 (catch Exception e e))]
+        (is (not (nil? ex)) "should have thrown")
+        (is (= :exoscale.ex/forbidden (:type (ex-data ex))))))))
+
+(deftest default-max-size-enforced-for-raw-token
+  (let [huge-payload (apply str (repeat 1100000 "x"))
+        base-config  {::danger/algorithm      ::danger/hmac-sha1
+                      ::danger/key-derivation ::danger/django-concat
+                      ::danger/signer-type    ::danger/timestamp-signer
+                      ::danger/private-key    "secret"
+                      ::danger/salt           "salt"
+                      ::danger/payload        huge-payload}
+        token        (danger/sign base-config)]
+    (testing "default 1MB limit is enforced for raw token size"
+      (let [ex (try
+                 (danger/verify {::danger/algorithm      ::danger/hmac-sha1
+                                 ::danger/key-derivation ::danger/django-concat
+                                 ::danger/signer-type    ::danger/timestamp-signer
                                  ::danger/private-keys   ["secret"]
                                  ::danger/salt           "salt"
                                  ::danger/token          token})
