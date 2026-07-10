@@ -190,6 +190,9 @@
      :as    config}]
    (ex/assert-spec-valid ::verify-input config)
    (let [{::keys [payload-part timestamp-part timestamp to-sign signature]} (parse-token token signer-type)]
+     (when (or (not (nat-int? timestamp))
+               (<= Integer/MAX_VALUE timestamp))
+       (ex/ex-forbidden! "invalid timestamp"))
      (when-not (some (partial comp/=== signature)
                      (signatures-for config to-sign))
        (ex/ex-forbidden! "invalid signature"))
