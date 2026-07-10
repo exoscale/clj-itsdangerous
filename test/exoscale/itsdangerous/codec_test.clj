@@ -164,3 +164,68 @@
                                  ::danger/verify-keys    ["plain-secret"]
                                  ::danger/salt           "salt"
                                  ::danger/token          token}))))))
+
+(deftest url-safe-payload-can-be-any-json-value
+  (testing "map payload round-trip with URL-safe serializer"
+    (let [payload {"user-id" 1234 "roles" ["admin" "user"]}
+          token   (danger/sign {::danger/algorithm      ::danger/hmac-sha256
+                                ::danger/key-derivation ::danger/django-concat
+                                ::danger/signer-type    ::danger/url-safe-serializer
+                                ::danger/sign-key       "secret"
+                                ::danger/salt           "salt"
+                                ::danger/payload        payload})]
+      (is (string? token))
+      (is (= payload (danger/verify {::danger/algorithm      ::danger/hmac-sha256
+                                     ::danger/key-derivation ::danger/django-concat
+                                     ::danger/signer-type    ::danger/url-safe-serializer
+                                     ::danger/verify-keys    ["secret"]
+                                     ::danger/salt           "salt"
+                                     ::danger/token          token})))))
+
+  (testing "number payload round-trip with URL-safe timed serializer"
+    (let [payload 42
+          token   (danger/sign {::danger/algorithm      ::danger/hmac-sha256
+                                ::danger/key-derivation ::danger/django-concat
+                                ::danger/signer-type    ::danger/url-safe-timed-serializer
+                                ::danger/sign-key       "secret"
+                                ::danger/salt           "salt"
+                                ::danger/payload        payload})]
+      (is (string? token))
+      (is (= payload (danger/verify {::danger/algorithm      ::danger/hmac-sha256
+                                     ::danger/key-derivation ::danger/django-concat
+                                     ::danger/signer-type    ::danger/url-safe-timed-serializer
+                                     ::danger/verify-keys    ["secret"]
+                                     ::danger/salt           "salt"
+                                     ::danger/token          token})))))
+
+  (testing "vector payload round-trip with URL-safe serializer"
+    (let [payload [1 2 3]
+          token   (danger/sign {::danger/algorithm      ::danger/hmac-sha256
+                                ::danger/key-derivation ::danger/django-concat
+                                ::danger/signer-type    ::danger/url-safe-serializer
+                                ::danger/sign-key       "secret"
+                                ::danger/salt           "salt"
+                                ::danger/payload        payload})]
+      (is (string? token))
+      (is (= payload (danger/verify {::danger/algorithm      ::danger/hmac-sha256
+                                     ::danger/key-derivation ::danger/django-concat
+                                     ::danger/signer-type    ::danger/url-safe-serializer
+                                     ::danger/verify-keys    ["secret"]
+                                     ::danger/salt           "salt"
+                                     ::danger/token          token})))))
+
+  (testing "string payload still works with raw signer (backward compat)"
+    (let [payload "my-payload"
+          token   (danger/sign {::danger/algorithm      ::danger/hmac-sha256
+                                ::danger/key-derivation ::danger/django-concat
+                                ::danger/signer-type    ::danger/signer
+                                ::danger/sign-key       "secret"
+                                ::danger/salt           "salt"
+                                ::danger/payload        payload})]
+      (is (string? token))
+      (is (= payload (danger/verify {::danger/algorithm      ::danger/hmac-sha256
+                                     ::danger/key-derivation ::danger/django-concat
+                                     ::danger/signer-type    ::danger/signer
+                                     ::danger/verify-keys    ["secret"]
+                                     ::danger/salt           "salt"
+                                     ::danger/token          token}))))))

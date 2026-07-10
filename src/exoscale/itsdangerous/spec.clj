@@ -9,9 +9,9 @@
   "Regexp for a valid itsdangerous token.  Must contain at least one dot
    separating the payload from the signature.  May start with a dot for
    compressed URL-safe serializer tokens or empty payloads."
-  #".*\..+")
+  #"(?s).*\..+")
 
-(s/def ::d/payload          string?)
+(s/def ::d/payload          any?)
 (s/def ::d/sign-key
   (s/with-gen (complement nil?)
     #(s/gen (s/and string? (complement str/blank?)))))
