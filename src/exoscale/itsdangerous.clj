@@ -52,11 +52,11 @@
               (let [dot-count (count (filter #(= % \.) s))
                     adjusted (if (.startsWith ^String s ".") (dec dot-count) dot-count)]
                 (when (not= adjusted (if timed? 2 1))
-                  (ex/ex-incorrect! "wrong token format" {::token s}))))
+                  (ex/ex-forbidden! "wrong token format" {::token s}))))
           ;; Split on last dot: everything before is value, after is signature
           last-dot (.lastIndexOf ^String s ".")
           _ (when (neg? last-dot)
-              (ex/ex-incorrect! "wrong token format" {::token s}))
+              (ex/ex-forbidden! "wrong token format" {::token s}))
           value (subs s 0 last-dot)
           sig   (subs s (inc last-dot))
           ;; For timed types, split value on last dot to extract timestamp
@@ -64,7 +64,7 @@
           (if timed?
             (let [prev-dot (.lastIndexOf ^String value ".")]
               (if (neg? prev-dot)
-                (ex/ex-incorrect! "wrong token format (missing timestamp)" {::token s})
+                (ex/ex-forbidden! "wrong token format (missing timestamp)" {::token s})
                 [(subs value 0 prev-dot) (subs value (inc prev-dot))]))
             [value nil])
           timestamp (if timestamp-part
@@ -81,7 +81,7 @@
     (catch Exception e
       (if (= :exoscale.itsdangerous/invalid-timestamp (:type (ex-data e)))
         (ex/ex-forbidden! "invalid timestamp")
-        (ex/ex-incorrect! "error while processing token" {::token s} e)))))
+        (throw e)))))
 
 (defn- signature-for
   "Compute the signature of a to-sign string. Yields the signature in Base64.
