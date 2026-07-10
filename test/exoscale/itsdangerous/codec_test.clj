@@ -15,6 +15,13 @@
    (let [y (-> x codec/int->bytes codec/bytes->int)]
      (= x y))))
 
+(deftest bytes->int-rejects-oversized-input
+  (let [ex (try
+             (codec/bytes->int (byte-array (range 9)))
+             (catch Exception e e))]
+    (is (not (nil? ex)) "should have thrown")
+    (is (= :exoscale.itsdangerous/invalid-timestamp (:type (ex-data ex))))))
+
 (deftest verify-rejects-out-of-range-timestamp
   (let [config {::danger/algorithm      ::danger/hmac-sha1
                 ::danger/key-derivation ::danger/django-concat
@@ -23,6 +30,19 @@
                 ::danger/salt           "salt"
                 ;; gAAAAA is base64url of 0x80000000 = 2147483648 > Integer/MAX_VALUE
                 ::danger/token          "payload.gAAAAA.invalidsignature"}
+        ex (try (danger/verify config)
+                (catch Exception e e))]
+    (is (not (nil? ex)) "should have thrown")
+    (is (= :exoscale.ex/forbidden (:type (ex-data ex))))))
+
+(deftest verify-rejects-oversized-timestamp
+  (let [config {::danger/algorithm      ::danger/hmac-sha1
+                ::danger/key-derivation ::danger/django-concat
+                ::danger/signer-type    ::danger/timestamp-signer
+                ::danger/private-keys   ["secret"]
+                ::danger/salt           "salt"
+                ;; AAAAAAAAAAAA is base64url of 9 zero bytes (> 8 bytes)
+                ::danger/token          "payload.AAAAAAAAAAAA.invalidsignature"}
         ex (try (danger/verify config)
                 (catch Exception e e))]
     (is (not (nil? ex)) "should have thrown")
