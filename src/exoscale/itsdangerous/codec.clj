@@ -1,12 +1,14 @@
 (ns exoscale.itsdangerous.codec
   "Standard format coercers"
   (:require [clojure.string :as str])
-  (:import java.util.Base64))
+  (:import java.util.Arrays
+           java.util.Base64
+           java.nio.ByteBuffer))
 
 (defn ^String b->b64
   "Convert a byte array to URL encoded Base64. Padding ('=' chars) is stripped."
   [^bytes b]
-  (-> (String. (.encode (Base64/getUrlEncoder) b))
+  (-> (String. (.encode (Base64/getUrlEncoder) b) "UTF-8")
       (str/replace #"=+$" "")))
 
 (defn ^String s->b64
@@ -17,42 +19,50 @@
 (defn b64->b
   "Decodes an URL encoded string to a byte array."
   [^String s]
-  (.decode (Base64/getUrlDecoder) (.getBytes s)))
+  (.decode (Base64/getUrlDecoder) (.getBytes s "UTF-8")))
 
 (defn ^String b64->s
   "Decodes an URL encoded string to a string."
   [^String s]
   (String. ^bytes (b64->b s) "UTF-8"))
 
-(def bit-shifts
-  "Bit shifts for integer conversions"
-  [24 16 8 0])
-
 (defn int->bytes
-  "Convert an integer to a 4-wide byte array. This is
-   used to store timestamps in ItsDangerous tokens. Since
-   timestamps are 32-bit wide and represent seconds since
-   the UNIX epoch, please consider another solution
-   if you want sessions that last beyond 2038."
+  "Convert an integer to a variable-length big-endian byte array.
+   Leading zeros are stripped (matching Python's int_to_bytes)."
   [input]
-  (byte-array
-   (for [n bit-shifts]
-     (bit-and 0xff (bit-shift-right input n)))))
+  (let [buf (ByteBuffer/allocate 8)]
+    (.putLong buf (long input))
+    (.flip buf)
+    (let [arr (byte-array 8)]
+      (.get buf arr)
+      (if (every? zero? arr)
+        (byte-array 0)
+        (let [start (loop [i 0]
+                      (if (and (< i 7) (zero? (aget arr i)))
+                        (recur (inc i))
+                        i))]
+          (Arrays/copyOfRange arr ^int start 8))))))
 
 (defn bytes->int
-  "Get back a 32-bit integer from a 4-wide byte-array"
+  "Get back a 64-bit integer from a variable-length byte-array.
+   Right-justifies to 8 bytes (matching Python's bytes_to_int)."
   [^bytes input]
-  (reduce bit-or 0
-          (map (fn [x n] (bit-shift-left (bit-and x 0xff) n))
-               (seq input)
-               bit-shifts)))
+  (if (zero? (count input))
+    0
+    (if (> (count input) 8)
+      (throw (ex-info "invalid timestamp" {:type :exoscale.itsdangerous/invalid-timestamp}))
+      (let [buf (ByteBuffer/allocate 8)]
+        (.position buf (- 8 (count input)))
+        (.put buf input)
+        (.flip buf)
+        (.getLong buf)))))
 
 (defn int->b64
-  "Convert an integer to an URL encoded Base64 string."
+  "Convert an integer to a URL encoded Base64 string."
   [input]
   (b->b64 (int->bytes input)))
 
 (defn ^Integer b64->int
-  "Convert an URL encoded Base64 string to an integer."
+  "Convert a URL encoded Base64 string to an integer."
   [input]
   (bytes->int (b64->b input)))

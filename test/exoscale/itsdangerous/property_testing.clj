@@ -9,24 +9,23 @@
 
 (stest/instrument `danger/sign)
 (stest/instrument `danger/verify)
-(stest/instrument `danger/parse-token)
-(stest/instrument `danger/signature-for)
-(stest/instrument `danger/main-key)
 
 (defspec roundtrip-sign-to-verify
   10000
   (prop/for-all
    [config (s/gen ::danger/config)
-    payload (s/gen ::danger/payload)]
-   (let [token (danger/sign config payload)]
+    payload gen/string]
+   (let [sign-config (assoc config ::danger/sign-key (first (::danger/verify-keys config)))
+         token (danger/sign sign-config payload)]
      (= payload (danger/verify config token)))))
 
 (defspec token-validity-is-enforced
   10000
   (prop/for-all
    [config  (s/gen ::danger/config)
-    payload (s/gen ::danger/payload)]
-   (let [token (danger/sign config payload 0)]
+    payload gen/string]
+   (let [sign-config (assoc config ::danger/sign-key (first (::danger/verify-keys config)))
+         token (danger/sign sign-config payload 0)]
      (= [:exoscale.ex/forbidden "token validity expired"]
         (try
           (danger/verify config token 86400)
@@ -37,23 +36,25 @@
   10000
   (prop/for-all
    [config  (s/gen ::danger/config)
-    payload (s/gen ::danger/payload)]
-   (let [token (danger/sign config payload (dec (danger/epoch)))]
+    payload gen/string]
+   (let [sign-config (assoc config ::danger/sign-key (first (::danger/verify-keys config)))
+         token (danger/sign sign-config payload 0)]
      (= [:exoscale.ex/forbidden "token validity expired"]
         (try
           (danger/verify config token 0)
           (catch Exception e
             [(:type (ex-data e)) (ex-message e)]))))))
 
-(defspec token-signature-is-enforced-private-key-variant
+(defspec token-signature-is-enforced-sign-key-variant
   10000
   (prop/for-all
    [base        (s/gen ::danger/config)
-    private-key (s/gen ::danger/private-key)
-    payload     (s/gen ::danger/payload)]
-   (let [good-config (assoc base ::danger/private-keys [private-key])
-         bad-config  (assoc base ::danger/private-keys [(str private-key "f")])
-         token       (danger/sign good-config payload)]
+    sign-key (s/gen ::danger/sign-key)
+    payload     gen/string]
+   (let [good-config (assoc base ::danger/verify-keys [sign-key])
+         bad-config  (assoc base ::danger/verify-keys [(str sign-key "f")])
+         sign-config (assoc good-config ::danger/sign-key (first (::danger/verify-keys good-config)))
+         token       (danger/sign sign-config payload)]
      (= [:exoscale.ex/forbidden "invalid signature"]
         (try
           (danger/verify  bad-config token)
@@ -64,10 +65,27 @@
   10000
   (prop/for-all
    [config  (s/gen ::danger/config)
-    payload (s/gen ::danger/payload)]
-   (let [token (danger/sign config payload)]
+    payload gen/string]
+   (let [sign-config (assoc config ::danger/sign-key (first (::danger/verify-keys config)))
+         token (danger/sign sign-config payload)]
      (= [:exoscale.ex/forbidden "invalid signature"]
         (try
           (danger/verify (update config ::danger/salt str "suffix") token)
           (catch Exception e
             [(:type (ex-data e)) (ex-message e)]))))))
+
+(defspec fallback-algorithm-verification
+  10000
+  (prop/for-all
+   [config  (s/gen ::danger/config)
+    payload gen/string]
+   (let [other-algorithm (case (::danger/algorithm config)
+                           ::danger/hmac-sha1 ::danger/hmac-sha256
+                           ::danger/hmac-sha256 ::danger/hmac-sha512
+                           ::danger/hmac-sha512 ::danger/hmac-sha1)
+         sign-config (assoc config ::danger/sign-key (first (::danger/verify-keys config)))
+         token (danger/sign sign-config payload)
+         verify-config (assoc config
+                              ::danger/algorithm other-algorithm
+                              ::danger/fallbacks [{::danger/algorithm (::danger/algorithm config)}])]
+     (= payload (danger/verify verify-config token)))))
