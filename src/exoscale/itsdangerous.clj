@@ -16,7 +16,7 @@
             [exoscale.itsdangerous.zlib  :as zlib]
             [exoscale.itsdangerous.spec  :as spec]))
 
-(defn- epoch
+(defn epoch
   "UNIX epoch in seconds"
   []
   (quot (System/currentTimeMillis) 1000))
