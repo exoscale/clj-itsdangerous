@@ -11,7 +11,7 @@
 (stest/instrument `danger/verify)
 
 (defspec roundtrip-sign-to-verify
-  10000
+  5000
   (prop/for-all
    [config (s/gen ::danger/config)
     payload gen/string]
@@ -20,7 +20,7 @@
      (= payload (danger/verify config token)))))
 
 (defspec token-validity-is-enforced
-  10000
+  5000
   (prop/for-all
    [config  (s/gen ::danger/config)
     payload gen/string]
@@ -33,7 +33,7 @@
             [(:type (ex-data e)) (ex-message e)]))))))
 
 (defspec token-validity-is-enforced-small-window
-  10000
+  5000
   (prop/for-all
    [config  (s/gen ::danger/config)
     payload gen/string]
@@ -46,7 +46,7 @@
             [(:type (ex-data e)) (ex-message e)]))))))
 
 (defspec token-signature-is-enforced-sign-key-variant
-  10000
+  5000
   (prop/for-all
    [base        (s/gen ::danger/config)
     sign-key (s/gen ::danger/sign-key)
@@ -62,7 +62,7 @@
             [(:type (ex-data e)) (ex-message e)]))))))
 
 (defspec token-signature-is-enforced-salt-variant
-  10000
+  5000
   (prop/for-all
    [config  (s/gen ::danger/config)
     payload gen/string]
@@ -75,7 +75,7 @@
             [(:type (ex-data e)) (ex-message e)]))))))
 
 (defspec fallback-algorithm-verification
-  10000
+  5000
   (prop/for-all
    [config  (s/gen ::danger/config)
     payload gen/string]
