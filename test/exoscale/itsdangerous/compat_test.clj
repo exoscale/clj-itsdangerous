@@ -14,6 +14,8 @@
             [clojure.data.json     :as json]
             [exoscale.itsdangerous :as danger]))
 
+(set! *warn-on-reflection* true)
+
 (def ^:private python-project "test/python")
 (def ^:private python-script  "test/python/compat.py")
 
@@ -132,8 +134,7 @@
                                     ::danger/salt           salt
                                     ::danger/payload        large-payload})
             ;; Verify the token is actually compressed (payload part starts with ".")
-            _           (is (-> clj-token
-                                (.startsWith "."))
+            _           (is (-> ^String clj-token (.startsWith "."))
                             (str "token should be compressed: " (pr-str clj-token)))
             result      (python-verify clj-token algorithm key-derivation signer)]
         (is (:valid result)

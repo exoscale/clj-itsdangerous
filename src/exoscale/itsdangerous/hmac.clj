@@ -7,6 +7,8 @@
            javax.crypto.Mac
            javax.crypto.spec.SecretKeySpec))
 
+(set! *warn-on-reflection* true)
+
 ;; Algorithm names
 (defn hmac-algorithm-name
   "Get the HMAC algorithm name (e.g. 'HmacSHA1') for a given algorithm keyword."
