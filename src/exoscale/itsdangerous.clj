@@ -10,6 +10,7 @@
   (:require [clojure.data.json :as json]
             [constance.comp :as comp]
             [exoscale.ex :as ex]
+            [exoscale.itsdangerous.spec]                    ;; Ensure specs are loaded
             [exoscale.itsdangerous.codec :as codec]
             [exoscale.itsdangerous.hmac :as hmac]
             [exoscale.itsdangerous.zlib :as zlib]))
