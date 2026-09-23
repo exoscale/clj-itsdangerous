@@ -7,14 +7,12 @@
    world, especially in Flask applications.
 
    See https://itsdangerous.palletsprojects.com/ for more details."
-  (:require [exoscale.ex                 :as ex]
-            [clojure.data.json           :as json]
-            [clojure.string              :as str]
-            [constance.comp              :as comp]
-            [exoscale.itsdangerous.hmac  :as hmac]
+  (:require [clojure.data.json :as json]
+            [constance.comp :as comp]
+            [exoscale.ex :as ex]
             [exoscale.itsdangerous.codec :as codec]
-            [exoscale.itsdangerous.zlib  :as zlib]
-            [exoscale.itsdangerous.spec  :as spec]))
+            [exoscale.itsdangerous.hmac :as hmac]
+            [exoscale.itsdangerous.zlib :as zlib]))
 
 (defn epoch
   "UNIX epoch in seconds"
@@ -58,7 +56,7 @@
           _ (when (neg? last-dot)
               (ex/ex-forbidden! "wrong token format" {::token s}))
           value (subs s 0 last-dot)
-          sig   (subs s (inc last-dot))
+          sig (subs s (inc last-dot))
           ;; For timed types, split value on last dot to extract timestamp
           [payload-part timestamp-part]
           (if timed?
@@ -70,14 +68,14 @@
           timestamp (if timestamp-part
                       (codec/b64->int timestamp-part)
                       0)
-          to-sign   (if timestamp-part
-                      (str payload-part "." timestamp-part)
-                      payload-part)]
-      {::payload-part   payload-part
+          to-sign (if timestamp-part
+                    (str payload-part "." timestamp-part)
+                    payload-part)]
+      {::payload-part payload-part
        ::timestamp-part timestamp-part
-       ::timestamp      timestamp
-       ::to-sign        to-sign
-       ::signature      sig})
+       ::timestamp timestamp
+       ::to-sign to-sign
+       ::signature sig})
     (catch Exception e
       (if (= :exoscale.itsdangerous/invalid-timestamp (:type (ex-data e)))
         (ex/ex-forbidden! "invalid timestamp")
@@ -87,15 +85,15 @@
   "Compute the signature of a to-sign string. Yields the signature in Base64.
 
    Uses the configured algorithm, salt, and key derivation method."
-  [{::keys [algorithm salt key-derivation] :as config} to-sign sign-key]
+  [{::keys [algorithm salt key-derivation]} to-sign sign-key]
   (let [key-derivation (or key-derivation ::django-concat)
-        derived-key    (hmac/derive-key algorithm key-derivation sign-key salt)]
+        derived-key (hmac/derive-key algorithm key-derivation sign-key salt)]
     (codec/b->b64 (hmac/hmac-sign algorithm to-sign derived-key))))
 
 (defn- signatures-for
   "Yield all possible signatures for a to-sign string, based on the config.
    Includes fallback algorithm/key-derivation combinations."
-  [{::keys [algorithm salt key-derivation verify-keys fallbacks] :as config} to-sign]
+  [{::keys [algorithm salt key-derivation verify-keys fallbacks]} to-sign]
   (let [key-derivation (or key-derivation ::django-concat)
         primary-config {::algorithm algorithm ::salt salt ::key-derivation key-derivation}
         fallback-configs (for [fallback fallbacks]
@@ -113,9 +111,9 @@
    base64-encode.  If compressed, prefix with '.' (matching Python's
    URLSafeSerializer.dump_payload)."
   [payload]
-  (let [json-bytes          (.getBytes (json/write-str payload) "UTF-8")
-        [compressed? data]  (zlib/compress-if-beneficial json-bytes)
-        b64                 (codec/b->b64 data)]
+  (let [json-bytes (.getBytes (json/write-str payload) "UTF-8")
+        [compressed? data] (zlib/compress-if-beneficial json-bytes)
+        b64 (codec/b->b64 data)]
     (if compressed?
       (str "." b64)
       b64)))
@@ -125,12 +123,12 @@
    with '.', it's compressed: strip the prefix, base64-decode, decompress,
    then JSON-parse.  Otherwise just base64-decode and JSON-parse."
   [payload-part max-size]
-  (let [compressed?  (.startsWith ^String payload-part ".")
-        actual-part  (if compressed? (subs payload-part 1) payload-part)
-        decoded      (codec/b64->b actual-part)
-        json-bytes   (if compressed?
-                       (zlib/decompress decoded max-size)
-                       decoded)]
+  (let [compressed? (.startsWith ^String payload-part ".")
+        actual-part (if compressed? (subs payload-part 1) payload-part)
+        decoded (codec/b64->b actual-part)
+        json-bytes (if compressed?
+                     (zlib/decompress decoded max-size)
+                     decoded)]
     (json/read-str (String. ^bytes json-bytes "UTF-8"))))
 
 ;; --- Sign and verify ---
@@ -149,28 +147,29 @@
 
    `::key-derivation` defaults to `::django-concat`.
    `::timestamp` defaults to the UNIX epoch in seconds."
-  ([{::keys [algorithm salt key-derivation signer-type timestamp payload sign-key]
-     :or    {algorithm      ::hmac-sha1
-             key-derivation ::django-concat
-             signer-type    ::timestamp-signer
-             timestamp      (epoch)}
-     :as    config}]
-   (ex/assert-spec-valid ::sign-input config)
-   (let [to-sign (case signer-type
-                   ::signer
-                   payload
+  ([config]
+   (let [defaults #::{:algorithm ::hmac-sha1
+                      :key-derivation ::django-concat
+                      :signer-type ::timestamp-signer
+                      :timestamp (epoch)}
+         config (merge defaults config)
+         {::keys [signer-type timestamp payload sign-key]} config]
+     (ex/assert-spec-valid ::sign-input config)
+     (let [to-sign (case signer-type
+                     ::signer
+                     payload
 
-                   ::timestamp-signer
-                   (str payload "." (codec/int->b64 timestamp))
+                     ::timestamp-signer
+                     (str payload "." (codec/int->b64 timestamp))
 
-                   ::url-safe-serializer
-                   (url-safe-payload-part payload)
+                     ::url-safe-serializer
+                     (url-safe-payload-part payload)
 
-                   ::url-safe-timed-serializer
-                   (str (url-safe-payload-part payload)
-                        "."
-                        (codec/int->b64 timestamp)))]
-     (str to-sign "." (signature-for config to-sign sign-key))))
+                     ::url-safe-timed-serializer
+                     (str (url-safe-payload-part payload)
+                          "."
+                          (codec/int->b64 timestamp)))]
+       (str to-sign "." (signature-for config to-sign sign-key)))))
   ([config payload]
    (sign (assoc config ::payload payload)))
   ([config payload timestamp]
@@ -194,39 +193,42 @@
 
    `::max-size` controls the maximum token size in bytes (default 1MB).  It
    also bounds the decompressed payload size for URL-safe serializer types."
-  ([{::keys [token algorithm salt key-derivation signer-type max-age max-size]
-     :or    {algorithm      ::hmac-sha1
-             key-derivation ::django-concat
-             signer-type    ::timestamp-signer
-             max-size       default-max-size}
-     :as    config}]
-   (ex/assert-spec-valid ::verify-input config)
-   (when (> (count token) max-size)
-     (ex/ex-forbidden! "token exceeds maximum allowed size" {:max-size max-size}))
-   (let [{::keys [payload-part timestamp-part timestamp to-sign signature]} (parse-token token signer-type)]
-     (when (or (not (nat-int? timestamp))
-               (<= Integer/MAX_VALUE timestamp))
-       (ex/ex-forbidden! "invalid timestamp"))
-     (when-not (some (partial comp/=== signature)
-                     (signatures-for config to-sign))
-       (ex/ex-forbidden! "invalid signature"))
-     (let [age (- (epoch) timestamp)]
-       (when (and (some? max-age)
-                  (or (< age -60)
-                      (< max-age age)))
-         (ex/ex-forbidden! "token validity expired")))
-     (case signer-type
-       ::signer
-       payload-part
+  ([config]
+   (let [defaults #::{:algorithm ::hmac-sha1
+                      :key-derivation ::django-concat
+                      :signer-type ::timestamp-signer
+                      :max-size default-max-size}
+         {::keys [token signer-type max-age max-size] :as config} (merge defaults config)]
+     (ex/assert-spec-valid ::verify-input config)
+     (when (> (count token) max-size)
+       (ex/ex-forbidden! "token exceeds maximum allowed size" {:max-size max-size}))
+     (let [{::keys [payload-part timestamp-part timestamp to-sign signature]} (parse-token token signer-type)
+           x (signatures-for config to-sign)
+           y (some (partial comp/=== signature)
+                   (signatures-for config to-sign))]
+       (when (or (not (nat-int? timestamp))
+                 (<= Integer/MAX_VALUE timestamp))
+         (ex/ex-forbidden! "invalid timestamp"))
+       (when-not (some (partial comp/=== signature)
+                       (signatures-for config to-sign))
+         (ex/ex-forbidden! "invalid signature"))
+       (let [age (- (epoch) timestamp)]
+         (when (and (some? max-age)
+                    (or (< age -60)
+                        (< max-age age)))
+           (ex/ex-forbidden! "token validity expired")))
+       (case signer-type
+         ::signer
+         payload-part
 
-       ::timestamp-signer
-       payload-part
+         ::timestamp-signer
+         payload-part
 
-       ::url-safe-serializer
-       (extract-url-safe-payload payload-part max-size)
+         ::url-safe-serializer
+         (extract-url-safe-payload payload-part max-size)
 
-       ::url-safe-timed-serializer
-       (extract-url-safe-payload payload-part max-size))))
+         ::url-safe-timed-serializer
+         (extract-url-safe-payload payload-part max-size)))))
   ([config token]
    (verify (assoc config ::token token)))
   ([config token max-age]
