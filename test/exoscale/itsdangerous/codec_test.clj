@@ -8,6 +8,8 @@
             [exoscale.itsdangerous.spec]
             [exoscale.cloak :as cloak]))
 
+(set! *warn-on-reflection* true)
+
 (defspec integer-conversion
   100000
   (prop/for-all

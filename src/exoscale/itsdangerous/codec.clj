@@ -5,10 +5,14 @@
            java.util.Base64
            java.nio.ByteBuffer))
 
+(set! *warn-on-reflection* true)
+
 (defn ^String b->b64
   "Convert a byte array to URL encoded Base64. Padding ('=' chars) is stripped."
   [^bytes b]
-  (-> (String. (.encode (Base64/getUrlEncoder) b) "UTF-8")
+  (-> (Base64/getUrlEncoder)
+      (.encode b)
+      (String. "UTF-8")
       (str/replace #"=+$" "")))
 
 (defn ^String s->b64

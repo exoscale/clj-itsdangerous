@@ -2,7 +2,9 @@
   "Zlib compression utilities compatible with Python's zlib.compress/decompress."
   (:require [exoscale.ex :as ex])
   (:import [java.io ByteArrayOutputStream]
-           [java.util.zip Deflater Inflater DataFormatException]))
+           [java.util.zip Deflater Inflater]))
+
+(set! *warn-on-reflection* true)
 
 (defn- compress
   "Compress data using zlib format (compatible with Python's zlib.compress)."

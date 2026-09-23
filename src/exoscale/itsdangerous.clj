@@ -14,6 +14,8 @@
             [exoscale.itsdangerous.hmac :as hmac]
             [exoscale.itsdangerous.zlib :as zlib]))
 
+(set! *warn-on-reflection* true)
+
 (defn epoch
   "UNIX epoch in seconds"
   []

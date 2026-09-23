@@ -7,6 +7,8 @@
             [exoscale.itsdangerous           :as danger]
             exoscale.itsdangerous.spec))
 
+(set! *warn-on-reflection* true)
+
 (stest/instrument `danger/sign)
 (stest/instrument `danger/verify)
 

@@ -2,6 +2,8 @@
   (:require [clojure.spec.alpha :as s]
             [clojure.string     :as str]))
 
+(set! *warn-on-reflection* true)
+
 (create-ns 'exoscale.itsdangerous)
 (alias 'd 'exoscale.itsdangerous)
 
