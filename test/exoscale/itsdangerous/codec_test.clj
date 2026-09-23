@@ -25,7 +25,10 @@
     (is (= :exoscale.itsdangerous/invalid-timestamp (:type (ex-data ex))))))
 
 (deftest verify-rejects-out-of-range-timestamp
-  (let [config {::danger/verify-keys    ["secret"]
+  (let [config {::danger/algorithm      ::danger/hmac-sha1
+                ::danger/key-derivation ::danger/django-concat
+                ::danger/signer-type    ::danger/timestamp-signer
+                ::danger/verify-keys    ["secret"]
                 ::danger/salt           "salt"
                  ;; gAAAAA is base64url of 0x80000000 = 2147483648 > Integer/MAX_VALUE
                 ::danger/token          "payload.gAAAAA.invalidsignature"}
@@ -35,7 +38,10 @@
     (is (= :exoscale.ex/forbidden (:type (ex-data ex))))))
 
 (deftest verify-rejects-oversized-timestamp
-  (let [config {::danger/verify-keys    ["secret"]
+  (let [config {::danger/algorithm      ::danger/hmac-sha1
+                ::danger/key-derivation ::danger/django-concat
+                ::danger/signer-type    ::danger/timestamp-signer
+                ::danger/verify-keys    ["secret"]
                 ::danger/salt           "salt"
                  ;; AAAAAAAAAAAA is base64url of 9 zero bytes (> 8 bytes)
                 ::danger/token          "payload.AAAAAAAAAAAA.invalidsignature"}
@@ -46,13 +52,17 @@
 
 (deftest decompress-size-limit
   (let [large-payload (apply str (repeat 5000 "x"))
-        base-config   {::danger/signer-type    ::danger/url-safe-serializer
+        base-config   {::danger/algorithm      ::danger/hmac-sha1
+                       ::danger/key-derivation ::danger/django-concat
+                       ::danger/signer-type    ::danger/url-safe-serializer
                        ::danger/sign-key       "secret"
                        ::danger/salt           "salt"
                        ::danger/payload        large-payload}
         token         (danger/sign base-config)]
     (testing "decompression under limit succeeds"
-      (let [result (danger/verify {::danger/signer-type            ::danger/url-safe-serializer
+      (let [result (danger/verify {::danger/algorithm              ::danger/hmac-sha1
+                                   ::danger/key-derivation         ::danger/django-concat
+                                   ::danger/signer-type            ::danger/url-safe-serializer
                                    ::danger/verify-keys            ["secret"]
                                    ::danger/salt                   "salt"
                                    ::danger/token                  token
@@ -60,7 +70,9 @@
         (is (= large-payload result))))
     (testing "decompression over limit throws"
       (let [ex (try
-                 (danger/verify {::danger/signer-type            ::danger/url-safe-serializer
+                 (danger/verify {::danger/algorithm              ::danger/hmac-sha1
+                                 ::danger/key-derivation         ::danger/django-concat
+                                 ::danger/signer-type            ::danger/url-safe-serializer
                                  ::danger/verify-keys            ["secret"]
                                  ::danger/salt                   "salt"
                                  ::danger/token                  token
@@ -71,7 +83,9 @@
 
 (deftest default-max-size-enforced
   (let [huge-payload (apply str (repeat 1100000 "x"))
-        base-config  {::danger/signer-type    ::danger/url-safe-serializer
+        base-config  {::danger/algorithm      ::danger/hmac-sha1
+                      ::danger/key-derivation ::danger/django-concat
+                      ::danger/signer-type    ::danger/url-safe-serializer
                       ::danger/sign-key       "secret"
                       ::danger/salt           "salt"
                       ::danger/payload        huge-payload}
@@ -90,13 +104,19 @@
 
 (deftest default-max-size-enforced-for-raw-token
   (let [huge-payload (apply str (repeat 1100000 "x"))
-        base-config  {::danger/sign-key       "secret"
+        base-config  {::danger/algorithm      ::danger/hmac-sha1
+                      ::danger/key-derivation ::danger/django-concat
+                      ::danger/signer-type    ::danger/timestamp-signer
+                      ::danger/sign-key       "secret"
                       ::danger/salt           "salt"
                       ::danger/payload        huge-payload}
         token        (danger/sign base-config)]
     (testing "default 1MB limit is enforced for raw token size"
       (let [ex (try
-                 (danger/verify {::danger/verify-keys   ["secret"]
+                 (danger/verify {::danger/algorithm      ::danger/hmac-sha1
+                                 ::danger/key-derivation ::danger/django-concat
+                                 ::danger/signer-type    ::danger/timestamp-signer
+                                 ::danger/verify-keys   ["secret"]
                                  ::danger/salt           "salt"
                                  ::danger/token          token})
                  (catch Exception e e))]
@@ -108,31 +128,41 @@
     (let [secret (cloak/mask "secret")
           payload "my-payload"
           token (danger/sign {::danger/algorithm      ::danger/hmac-sha256
+                              ::danger/key-derivation ::danger/django-concat
+                              ::danger/signer-type    ::danger/timestamp-signer
                               ::danger/sign-key       secret
                               ::danger/salt           "salt"
                               ::danger/payload        payload})]
       (is (string? token))
       (is (= payload (danger/verify {::danger/algorithm      ::danger/hmac-sha256
+                                     ::danger/key-derivation ::danger/django-concat
+                                     ::danger/signer-type    ::danger/timestamp-signer
                                      ::danger/verify-keys    [secret]
                                      ::danger/salt           "salt"
                                      ::danger/token          token})))))
   (testing "mixed plain and masked keys in verify-keys"
     (let [masked (cloak/mask "secret")
           token  (danger/sign {::danger/algorithm      ::danger/hmac-sha256
+                               ::danger/key-derivation ::danger/django-concat
                                ::danger/signer-type    ::danger/signer
                                ::danger/sign-key       masked
                                ::danger/salt           "salt"
                                ::danger/payload        "data"})]
       (is (= "data" (danger/verify {::danger/algorithm      ::danger/hmac-sha256
+                                    ::danger/key-derivation ::danger/django-concat
                                     ::danger/signer-type    ::danger/signer
                                     ::danger/verify-keys    ["secret"]
                                     ::danger/salt           "salt"
                                     ::danger/token          token})))))
   (testing "plain keys still work (unmask is idempotent)"
-    (let [token (danger/sign {::danger/sign-key       "plain-secret"
+    (let [token (danger/sign {::danger/algorithm      ::danger/hmac-sha1
+                              ::danger/key-derivation ::danger/django-concat
+                              ::danger/sign-key       "plain-secret"
                               ::danger/salt           "salt"
                               ::danger/payload        "x"})]
-      (is (= "x" (danger/verify {::danger/verify-keys    ["plain-secret"]
+      (is (= "x" (danger/verify {::danger/algorithm      ::danger/hmac-sha1
+                                 ::danger/key-derivation ::danger/django-concat
+                                 ::danger/verify-keys    ["plain-secret"]
                                  ::danger/salt           "salt"
                                  ::danger/token          token}))))))
 
@@ -140,12 +170,14 @@
   (testing "map payload round-trip with URL-safe serializer"
     (let [payload {"user-id" 1234 "roles" ["admin" "user"]}
           token   (danger/sign {::danger/algorithm      ::danger/hmac-sha256
+                                ::danger/key-derivation ::danger/django-concat
                                 ::danger/signer-type    ::danger/url-safe-serializer
                                 ::danger/sign-key       "secret"
                                 ::danger/salt           "salt"
                                 ::danger/payload        payload})]
       (is (string? token))
       (is (= payload (danger/verify {::danger/algorithm      ::danger/hmac-sha256
+                                     ::danger/key-derivation ::danger/django-concat
                                      ::danger/signer-type    ::danger/url-safe-serializer
                                      ::danger/verify-keys    ["secret"]
                                      ::danger/salt           "salt"
@@ -154,12 +186,14 @@
   (testing "number payload round-trip with URL-safe timed serializer"
     (let [payload 42
           token   (danger/sign {::danger/algorithm      ::danger/hmac-sha256
+                                ::danger/key-derivation ::danger/django-concat
                                 ::danger/signer-type    ::danger/url-safe-timed-serializer
                                 ::danger/sign-key       "secret"
                                 ::danger/salt           "salt"
                                 ::danger/payload        payload})]
       (is (string? token))
       (is (= payload (danger/verify {::danger/algorithm      ::danger/hmac-sha256
+                                     ::danger/key-derivation ::danger/django-concat
                                      ::danger/signer-type    ::danger/url-safe-timed-serializer
                                      ::danger/verify-keys    ["secret"]
                                      ::danger/salt           "salt"
@@ -168,12 +202,14 @@
   (testing "vector payload round-trip with URL-safe serializer"
     (let [payload [1 2 3]
           token   (danger/sign {::danger/algorithm      ::danger/hmac-sha256
+                                ::danger/key-derivation ::danger/django-concat
                                 ::danger/signer-type    ::danger/url-safe-serializer
                                 ::danger/sign-key       "secret"
                                 ::danger/salt           "salt"
                                 ::danger/payload        payload})]
       (is (string? token))
       (is (= payload (danger/verify {::danger/algorithm      ::danger/hmac-sha256
+                                     ::danger/key-derivation ::danger/django-concat
                                      ::danger/signer-type    ::danger/url-safe-serializer
                                      ::danger/verify-keys    ["secret"]
                                      ::danger/salt           "salt"
@@ -182,12 +218,14 @@
   (testing "string payload still works with raw signer (backward compat)"
     (let [payload "my-payload"
           token   (danger/sign {::danger/algorithm      ::danger/hmac-sha256
+                                ::danger/key-derivation ::danger/django-concat
                                 ::danger/signer-type    ::danger/signer
                                 ::danger/sign-key       "secret"
                                 ::danger/salt           "salt"
                                 ::danger/payload        payload})]
       (is (string? token))
       (is (= payload (danger/verify {::danger/algorithm      ::danger/hmac-sha256
+                                     ::danger/key-derivation ::danger/django-concat
                                      ::danger/signer-type    ::danger/signer
                                      ::danger/verify-keys    ["secret"]
                                      ::danger/salt           "salt"
