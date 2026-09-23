@@ -149,12 +149,12 @@
 
    `::key-derivation` defaults to `::django-concat`.
    `::timestamp` defaults to the UNIX epoch in seconds."
-  ([config]
+  ([input-config]
    (let [defaults {::algorithm ::hmac-sha1
                    ::key-derivation ::django-concat
                    ::signer-type ::timestamp-signer
                    ::timestamp (epoch)}
-         config (merge defaults config)
+         config (merge defaults input-config)
          {::keys [signer-type timestamp payload sign-key]} config]
      (ex/assert-spec-valid ::sign-input config)
      (let [to-sign (case signer-type
@@ -195,12 +195,12 @@
 
    `::max-size` controls the maximum token size in bytes (default 1MB).  It
    also bounds the decompressed payload size for URL-safe serializer types."
-  ([config]
+  ([input-config]
    (let [defaults {::algorithm ::hmac-sha1
                    ::key-derivation ::django-concat
                    ::signer-type ::timestamp-signer
                    ::max-size default-max-size}
-         {::keys [token signer-type max-age max-size] :as config} (merge defaults config)]
+         {::keys [token signer-type max-age max-size] :as config} (merge defaults input-config)]
      (ex/assert-spec-valid ::verify-input config)
      (when (> (count token) max-size)
        (ex/ex-forbidden! "token exceeds maximum allowed size" {:max-size max-size}))
