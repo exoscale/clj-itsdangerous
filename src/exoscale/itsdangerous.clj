@@ -136,6 +136,11 @@
 
 ;; --- Sign and verify ---
 
+(defn- replace-nils-with-default
+  "Replace v2 when nil with default, probably something and not nil)"
+  [default v2]
+  (or v2 default))
+
 (defn sign
   "Run the signature process for a payload, yields token as a string.
 
@@ -155,7 +160,7 @@
                    ::key-derivation ::django-concat
                    ::signer-type ::timestamp-signer
                    ::timestamp (epoch)}
-         config (merge defaults input-config)
+         config (merge-with replace-nils-with-default defaults input-config)
          {::keys [signer-type timestamp payload sign-key]} config]
      (ex/assert-spec-valid ::sign-input config)
      (let [to-sign (case signer-type
@@ -201,14 +206,12 @@
                    ::key-derivation ::django-concat
                    ::signer-type ::timestamp-signer
                    ::max-size default-max-size}
-         {::keys [token signer-type max-age max-size] :as config} (merge defaults input-config)]
+         config (merge-with replace-nils-with-default defaults input-config)
+         {::keys [token signer-type max-age max-size]} config]
      (ex/assert-spec-valid ::verify-input config)
      (when (> (count token) max-size)
        (ex/ex-forbidden! "token exceeds maximum allowed size" {:max-size max-size}))
-     (let [{::keys [payload-part timestamp-part timestamp to-sign signature]} (parse-token token signer-type)
-           x (signatures-for config to-sign)
-           y (some (partial comp/=== signature)
-                   (signatures-for config to-sign))]
+     (let [{::keys [payload-part timestamp-part timestamp to-sign signature]} (parse-token token signer-type)]
        (when (or (not (nat-int? timestamp))
                  (<= Integer/MAX_VALUE timestamp))
          (ex/ex-forbidden! "invalid timestamp"))
@@ -225,7 +228,7 @@
          payload-part
 
          ::timestamp-signer
-         payload-part
+         payload-part                                       ;; Should be timestamp part??
 
          ::url-safe-serializer
          (extract-url-safe-payload payload-part max-size)
