@@ -22,7 +22,7 @@
              (codec/bytes->int (byte-array (range 9)))
              (catch Exception e e))]
     (is (not (nil? ex)) "should have thrown")
-    (is (= :exoscale.itsdangerous/invalid-timestamp (:type (ex-data ex))))))
+    (is (= :exoscale.ex/forbidden (:type (ex-data ex))))))
 
 (deftest verify-rejects-out-of-range-timestamp
   (let [config {::danger/algorithm      ::danger/hmac-sha1
@@ -157,11 +157,13 @@
   (testing "plain keys still work (unmask is idempotent)"
     (let [token (danger/sign {::danger/algorithm      ::danger/hmac-sha1
                               ::danger/key-derivation ::danger/django-concat
+                              ::danger/signer-type    ::danger/signer
                               ::danger/sign-key       "plain-secret"
                               ::danger/salt           "salt"
                               ::danger/payload        "x"})]
       (is (= "x" (danger/verify {::danger/algorithm      ::danger/hmac-sha1
                                  ::danger/key-derivation ::danger/django-concat
+                                 ::danger/signer-type    ::danger/signer
                                  ::danger/verify-keys    ["plain-secret"]
                                  ::danger/salt           "salt"
                                  ::danger/token          token}))))))
