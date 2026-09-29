@@ -46,12 +46,13 @@
                                           ::d/fallbacks]))
 (s/def ::d/verify-input     (s/merge ::d/config
                                      (s/keys :req [::d/token]
-                                             :opt [::d/max-size])))
+                                             :opt [::d/max-size
+                                                   ::d/max-age])))
 (s/def ::d/sign-config      (s/keys :req [::d/sign-key
                                           ::d/salt
-                                          ::d/algorithm]
-                                    :opt [::d/key-derivation
-                                          ::d/signer-type]))
+                                          ::d/algorithm
+                                          ::d/signer-type]
+                                    :opt [::d/key-derivation]))
 (s/def ::d/sign-input       (s/merge ::d/sign-config
                                      (s/keys :req [::d/payload]
                                              :opt [::d/timestamp])))
