@@ -158,7 +158,6 @@
   ([input-config]
    (let [defaults {::algorithm ::hmac-sha1
                    ::key-derivation ::django-concat
-                   ::signer-type ::timestamp-signer
                    ::timestamp (epoch)}
          config (merge-with replace-nils-with-default defaults input-config)
          {::keys [signer-type timestamp payload sign-key]} config]
@@ -204,7 +203,6 @@
   ([input-config]
    (let [defaults {::algorithm ::hmac-sha1
                    ::key-derivation ::django-concat
-                   ::signer-type ::timestamp-signer
                    ::max-size default-max-size}
          config (merge-with replace-nils-with-default defaults input-config)
          {::keys [token signer-type max-age max-size]} config]
