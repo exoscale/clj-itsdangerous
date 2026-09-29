@@ -40,9 +40,9 @@
 (s/def ::d/fallbacks        (s/coll-of ::d/fallback))
 (s/def ::d/config           (s/keys :req [::d/verify-keys
                                           ::d/salt
-                                          ::d/algorithm]
+                                          ::d/algorithm
+                                          ::d/signer-type]
                                     :opt [::d/key-derivation
-                                          ::d/signer-type
                                           ::d/fallbacks]))
 (s/def ::d/verify-input     (s/merge ::d/config
                                      (s/keys :req [::d/token]
