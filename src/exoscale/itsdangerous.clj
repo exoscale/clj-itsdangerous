@@ -8,14 +8,19 @@
 
    See https://itsdangerous.palletsprojects.com/ for more details."
   (:require [clojure.data.json :as json]
-            [constance.comp :as comp]
+            [clojure.string :as string]
             [exoscale.ex :as ex]
-            [exoscale.itsdangerous.spec]                    ;; Ensure specs are loaded
-            [exoscale.itsdangerous.codec :as codec]
+            [exoscale.itsdangerous.codec :as codec]         ;; Ensure specs are loaded
             [exoscale.itsdangerous.hmac :as hmac]
-            [exoscale.itsdangerous.zlib :as zlib]))
+            [exoscale.itsdangerous.spec]
+            [exoscale.itsdangerous.zlib :as zlib])
+  (:import (java.security MessageDigest)))
 
 (set! *warn-on-reflection* true)
+
+(defn digest=
+  [^String d1 ^String d2]
+  (MessageDigest/isEqual (.getBytes d1) (.getBytes d2)))
 
 (defn epoch
   "UNIX epoch in seconds"
@@ -27,6 +32,35 @@
 (def ^:private timed-signer-types
   "Signer types that include a timestamp in the token."
   #{::timestamp-signer ::url-safe-timed-serializer})
+
+(defn- enforce-dot-count
+  [token signer-type]
+  (let [timed? (contains? timed-signer-types signer-type)
+        url-safe? (contains? #{::url-safe-serializer ::url-safe-timed-serializer} signer-type)]
+    (when url-safe?
+      (let [dot-count (count (filter #(= % \.) token))
+            adjusted (if (string/starts-with? token ".") (dec dot-count) dot-count)]
+        (when (not= adjusted (if timed? 2 1))
+          (ex/ex-forbidden! "wrong token format" {::token token}))))))
+
+(defn- get-parts
+  [token signer-type last-dot]
+  (let [value (subs token 0 last-dot)
+        timed? (contains? timed-signer-types signer-type)]
+    (if timed?
+      (let [prev-dot (string/last-index-of value ".")]
+        (if (neg? prev-dot)
+          (ex/ex-forbidden! "wrong token format (missing timestamp)" {::token token})
+          [(subs value 0 prev-dot) (subs value (inc prev-dot))]))
+      [value nil])))
+
+(defn- get-last-dot-index
+  "Split on last dot: everything before is value, after is signature"
+  [token]
+  (let [last-dot (string/last-index-of token ".")]
+    (when (neg? last-dot)
+        (ex/ex-forbidden! "wrong token format" {::token token}))
+    last-dot))
 
 (defn- parse-token
   "Split a ItsDangerous token into its constituent parts using rsplit-style
@@ -44,45 +78,19 @@
    - `::timestamp`      — the decoded timestamp integer (0 if not present)
    - `::to-sign`        — the string that was signed (payload part + optional timestamp)
    - `::signature`      — the signature part"
-  [s signer-type]
-  (try
-    (let [timed? (contains? timed-signer-types signer-type)
-          url-safe? (contains? #{::url-safe-serializer ::url-safe-timed-serializer} signer-type)
-          ;; For URL-safe signers, enforce strict dot count (adjusted for compression marker)
-          _ (when url-safe?
-              (let [dot-count (count (filter #(= % \.) s))
-                    adjusted (if (.startsWith ^String s ".") (dec dot-count) dot-count)]
-                (when (not= adjusted (if timed? 2 1))
-                  (ex/ex-forbidden! "wrong token format" {::token s}))))
-          ;; Split on last dot: everything before is value, after is signature
-          last-dot (.lastIndexOf ^String s ".")
-          _ (when (neg? last-dot)
-              (ex/ex-forbidden! "wrong token format" {::token s}))
-          value (subs s 0 last-dot)
-          sig (subs s (inc last-dot))
-          ;; For timed types, split value on last dot to extract timestamp
-          [payload-part timestamp-part]
-          (if timed?
-            (let [prev-dot (.lastIndexOf ^String value ".")]
-              (if (neg? prev-dot)
-                (ex/ex-forbidden! "wrong token format (missing timestamp)" {::token s})
-                [(subs value 0 prev-dot) (subs value (inc prev-dot))]))
-            [value nil])
-          timestamp (if timestamp-part
-                      (codec/b64->int timestamp-part)
-                      0)
-          to-sign (if timestamp-part
-                    (str payload-part "." timestamp-part)
-                    payload-part)]
-      {::payload-part payload-part
-       ::timestamp-part timestamp-part
-       ::timestamp timestamp
-       ::to-sign to-sign
-       ::signature sig})
-    (catch Exception e
-      (if (= :exoscale.itsdangerous/invalid-timestamp (:type (ex-data e)))
-        (ex/ex-forbidden! "invalid timestamp")
-        (throw e)))))
+  [token signer-type]
+  (enforce-dot-count token signer-type)
+  (let [last-dot-index (get-last-dot-index token)
+        sig (subs token (inc last-dot-index))
+        ;; For timed types, split value on last dot to extract timestamp
+        [payload-part timestamp-part] (get-parts token signer-type last-dot-index)
+        timestamp (if timestamp-part (codec/b64->int timestamp-part) 0)
+        to-sign (if timestamp-part (str payload-part "." timestamp-part) payload-part)]
+    {::payload-part payload-part
+     ::timestamp-part timestamp-part
+     ::timestamp timestamp
+     ::to-sign to-sign
+     ::signature sig}))
 
 (defn- signature-for
   "Compute the signature of a to-sign string. Yields the signature in Base64.
@@ -136,11 +144,6 @@
 
 ;; --- Sign and verify ---
 
-(defn- replace-nils-with-default
-  "Replace v2 when nil with default, probably something and not nil)"
-  [default v2]
-  (or v2 default))
-
 (defn sign
   "Run the signature process for a payload, yields token as a string.
 
@@ -159,7 +162,7 @@
    (let [defaults {::algorithm ::hmac-sha1
                    ::key-derivation ::django-concat
                    ::timestamp (epoch)}
-         config (merge-with replace-nils-with-default defaults input-config)
+         config (merge defaults input-config)
          {::keys [signer-type timestamp payload sign-key]} config]
      (ex/assert-spec-valid ::sign-input config)
      (let [to-sign (case signer-type
@@ -186,6 +189,28 @@
   "Default maximum token size in bytes (1 MB)."
   1048576)
 
+(def ^:const max-clock-skew-seconds
+  "Tolerate some seconds of clock skew between emitter and verifier"
+  -60)
+
+(defn- invalid-timestamp?
+  [timestamp]
+  (and (zero? timestamp)
+       (neg-int? timestamp)
+       (<= timestamp Integer/MAX_VALUE)))
+
+(defn- invalid-signature?
+  [config to-sign signature]
+  (->> (signatures-for config to-sign)
+       (filter (partial digest= signature))
+       empty?))
+
+(defn- invalid-age?
+  [age max-age]
+  (and (some? max-age)
+       (or (< age max-clock-skew-seconds)
+           (< max-age age))))
+
 (defn verify
   "Run verification on a token, throwing if the signature is invalid
    or if the token's validity has expired. Yields the payload upon success.
@@ -204,34 +229,28 @@
    (let [defaults {::algorithm ::hmac-sha1
                    ::key-derivation ::django-concat
                    ::max-size default-max-size}
-         config (merge-with replace-nils-with-default defaults input-config)
+         config (merge defaults input-config)
          {::keys [token signer-type max-age max-size]} config]
      (ex/assert-spec-valid ::verify-input config)
      (when (> (count token) max-size)
        (ex/ex-forbidden! "token exceeds maximum allowed size" {:max-size max-size}))
-     (let [{::keys [payload-part timestamp-part timestamp to-sign signature]} (parse-token token signer-type)]
-       (when (or (not (nat-int? timestamp))
-                 (<= Integer/MAX_VALUE timestamp))
-         (ex/ex-forbidden! "invalid timestamp"))
-       (when-not (some (partial comp/=== signature)
-                       (signatures-for config to-sign))
-         (ex/ex-forbidden! "invalid signature"))
-       (let [age (- (epoch) timestamp)]
-         (when (and (some? max-age)
-                    (or (< age -60)
-                        (< max-age age)))
-           (ex/ex-forbidden! "token validity expired")))
+     (let [{::keys [payload-part timestamp to-sign signature]} (parse-token token signer-type)
+           age (- (epoch) timestamp)]
+       (cond
+         (invalid-timestamp? timestamp)
+         (ex/ex-forbidden! "invalid timestamp")
+
+         (invalid-signature? config to-sign signature)
+         (ex/ex-forbidden! "invalid signature")
+
+         (invalid-age? age max-age)
+         (ex/ex-forbidden! "token validity expired"))
+
        (case signer-type
-         ::signer
+         (::signer ::timestamp-signer)
          payload-part
 
-         ::timestamp-signer
-         payload-part                                       ;; Should be timestamp part??
-
-         ::url-safe-serializer
-         (extract-url-safe-payload payload-part max-size)
-
-         ::url-safe-timed-serializer
+         (::url-safe-serializer ::url-safe-timed-serializer)
          (extract-url-safe-payload payload-part max-size)))))
   ([config token]
    (verify (assoc config ::token token)))
