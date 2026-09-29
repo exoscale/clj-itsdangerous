@@ -1,6 +1,7 @@
 (ns exoscale.itsdangerous.codec
   "Standard format coercers"
-  (:require [clojure.string :as str])
+  (:require [clojure.string :as str]
+            [exoscale.ex :as ex])
   (:import java.util.Arrays
            java.util.Base64
            java.nio.ByteBuffer))
@@ -15,15 +16,15 @@
       (String. "UTF-8")
       (str/replace #"=+$" "")))
 
-(defn ^String s->b64
-  "Convert a string to URL encoded Base64."
-  [^String s]
-  (b->b64 (.getBytes s "UTF-8")))
-
 (defn b64->b
   "Decodes an URL encoded string to a byte array."
   [^String s]
   (.decode (Base64/getUrlDecoder) (.getBytes s "UTF-8")))
+
+(defn ^String s->b64
+  "Convert a string to URL encoded Base64."
+  [^String s]
+  (b->b64 (.getBytes s "UTF-8")))
 
 (defn ^String b64->s
   "Decodes an URL encoded string to a string."
@@ -54,7 +55,7 @@
   (if (zero? (count input))
     0
     (if (> (count input) 8)
-      (throw (ex-info "invalid timestamp" {:type :exoscale.itsdangerous/invalid-timestamp}))
+      (ex/ex-forbidden! "invalid timestamp")
       (let [buf (ByteBuffer/allocate 8)]
         (.position buf (- 8 (count input)))
         (.put buf input)
