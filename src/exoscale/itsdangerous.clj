@@ -59,7 +59,7 @@
   [token]
   (let [last-dot (string/last-index-of token ".")]
     (when (neg? last-dot)
-        (ex/ex-forbidden! "wrong token format" {::token token}))
+      (ex/ex-forbidden! "wrong token format" {::token token}))
     last-dot))
 
 (defn- parse-token
