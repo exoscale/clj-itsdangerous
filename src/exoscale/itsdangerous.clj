@@ -10,9 +10,9 @@
   (:require [clojure.data.json :as json]
             [clojure.string :as string]
             [exoscale.ex :as ex]
-            [exoscale.itsdangerous.codec :as codec]         ;; Ensure specs are loaded
+            [exoscale.itsdangerous.codec :as codec]
             [exoscale.itsdangerous.hmac :as hmac]
-            [exoscale.itsdangerous.spec]
+            [exoscale.itsdangerous.spec] ;; Ensure specs are loaded
             [exoscale.itsdangerous.zlib :as zlib])
   (:import (java.security MessageDigest)))
 
