@@ -3,8 +3,10 @@
   :url "https://github.com/exoscale/clj-itsdangerous"
   :license {:name "MIT/ISC"
             :url  "https://github.com/exoscale/clj-kubernetes-api/blob/master/LICENSE"}
-  :dependencies [[org.clojure/clojure "1.10.1"]
-                 [exoscale/ex        "0.3.9"]
+  :dependencies [[org.clojure/clojure "1.12.4"]
+                 [org.clojure/data.json "2.5.2"]
+                 [exoscale/ex        "0.4.2"]
+                 [exoscale/cloak     "1.0.42"]
                  [spootnik/constance "0.5.4"]]
   :deploy-repositories [["releases" :clojars]
                         ["snapshots" :clojars]]
