@@ -195,9 +195,8 @@
 
 (defn- invalid-timestamp?
   [timestamp]
-  (and (zero? timestamp)
-       (neg-int? timestamp)
-       (<= timestamp Integer/MAX_VALUE)))
+  (or (neg-int? timestamp)
+      (> timestamp Integer/MAX_VALUE)))
 
 (defn- invalid-signature?
   [config to-sign signature]
