@@ -1,4 +1,4 @@
-(defproject exoscale/itsdangerous "0.1.3-SNAPSHOT"
+(defproject exoscale/itsdangerous "0.1.3"
   :description "Clojure incomplete port of https://palletsprojects.com/p/itsdangerous/"
   :url "https://github.com/exoscale/clj-itsdangerous"
   :license {:name "MIT/ISC"
@@ -8,8 +8,6 @@
                  [exoscale/ex        "0.4.2"]
                  [exoscale/cloak     "1.0.42"]
                  [spootnik/constance "0.5.4"]]
-  :deploy-repositories [["releases" :clojars]
-                        ["snapshots" :clojars]]
   :pedantic? :abort
   :profiles {:dev {:dependencies [[org.clojure/test.check "0.9.0"]]
                    :plugins      [[lein-cljfmt "0.6.7"]]
