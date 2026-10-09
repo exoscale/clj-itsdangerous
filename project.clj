@@ -1,4 +1,4 @@
-(defproject exoscale/itsdangerous "0.1.3"
+(defproject exoscale/itsdangerous "0.0.0"                   ;; VERSION IS NOT USED ... see build.clj
   :description "Clojure incomplete port of https://palletsprojects.com/p/itsdangerous/"
   :url "https://github.com/exoscale/clj-itsdangerous"
   :license {:name "MIT/ISC"
