@@ -63,7 +63,6 @@ jobs:
       - name: Install locally
         run: |
           clojure -T:build jar
-          cp target/classes/META-INF/maven/exoscale/itsdangerous/pom.xml .
           clojure -X:install
   release:
     name: Release
@@ -92,5 +91,4 @@ jobs:
           CLOJARS_PASSWORD: ${{ secrets.CLOJARS_TOKEN }}
         run: |
           clojure -T:build jar
-          cp target/classes/META-INF/maven/exoscale/itsdangerous/pom.xml .
           clojure -X:deploy
