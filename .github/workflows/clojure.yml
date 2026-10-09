@@ -90,8 +90,7 @@ jobs:
         env:
           CLOJARS_USERNAME: ${{ secrets.CLOJARS_USERNAME }}
           CLOJARS_PASSWORD: ${{ secrets.CLOJARS_TOKEN }}
-#TODO - -X:deploy once we are confident the steps are correct
         run: |
           clojure -T:build jar
           cp target/classes/META-INF/maven/exoscale/itsdangerous/pom.xml .
-          clojure -X:install
+          clojure -X:deploy
