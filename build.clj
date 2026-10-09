@@ -2,8 +2,10 @@
   (:require [clojure.tools.build.api :as b]))
 
 (def lib 'exoscale/itsdangerous)
-(def version "0.1.3")
+
 ;; ALSO UPDATE POM!!!! TODO ... automate via a VERSION FILE
+(def version "0.2.0")
+
 (def class-dir "target/classes")
 (def jar-file (format "target/%s-%s.jar" (name lib) version))
 
