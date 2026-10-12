@@ -142,6 +142,12 @@
                      decoded)]
     (json/read-str (String. ^bytes json-bytes "UTF-8"))))
 
+(defn- drop-nil-values
+  [m]
+  (->> m
+       (filter (comp some? val))
+       (into {})))
+
 ;; --- Sign and verify ---
 
 (defn sign
@@ -159,11 +165,14 @@
    `::key-derivation` defaults to `::django-concat`.
    `::timestamp` defaults to the UNIX epoch in seconds."
   ([input-config]
+   (when (nil? (::signer-type input-config)) (prn "FIX THIS" input-config))
    (let [defaults {::algorithm ::hmac-sha1
                    ::key-derivation ::django-concat
+                   ::signer-type ::timestamp-signer
                    ::timestamp (epoch)}
-         config (merge defaults input-config)
+         config (merge defaults (drop-nil-values input-config))
          {::keys [signer-type timestamp payload sign-key]} config]
+     (when (nil? (::signer-type config)) (prn "WTAF" config))
      (ex/assert-spec-valid ::sign-input config)
      (let [to-sign (case signer-type
                      ::signer
@@ -227,8 +236,9 @@
   ([input-config]
    (let [defaults {::algorithm ::hmac-sha1
                    ::key-derivation ::django-concat
+                   ::signer-type ::timestamp-signer
                    ::max-size default-max-size}
-         config (merge defaults input-config)
+         config (merge defaults (drop-nil-values input-config))
          {::keys [token signer-type max-age max-size]} config]
      (ex/assert-spec-valid ::verify-input config)
      (when (> (count token) max-size)

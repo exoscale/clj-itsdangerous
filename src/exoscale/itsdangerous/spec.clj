@@ -13,10 +13,13 @@
    compressed URL-safe serializer tokens or empty payloads."
   #"(?s).*\..+")
 
+(s/def ::non-blank-string (complement str/blank?))
 (s/def ::d/payload          any?)
 (s/def ::d/sign-key
   (s/with-gen (complement nil?)
-    #(s/gen (s/and string? (complement str/blank?)))))
+    #(s/gen (s/and string? ::non-blank-string))))
+(s/def ::d/private-key ::d/sign-key)
+
 (s/def ::d/verify-keys   (s/and (s/coll-of ::d/sign-key)
                                 (complement empty?)))
 (s/def ::d/algorithm        #{::d/hmac-sha1 ::d/hmac-sha256 ::d/hmac-sha512})
@@ -25,12 +28,12 @@
                               ::d/timestamp-signer
                               ::d/url-safe-serializer
                               ::d/url-safe-timed-serializer})
-(s/def ::d/salt             (s/and string? (complement str/blank?)))
+(s/def ::d/salt             (s/and string? ::non-blank-string))
 (s/def ::d/max-age          nat-int?)
 (s/def ::d/max-size         nat-int?)
 (s/def ::d/token            (partial re-matches token-pattern))
 (s/def ::d/timestamp        (s/and nat-int? #(< % Integer/MAX_VALUE)))
-(s/def ::d/signature        (s/and string? (complement str/blank?)))
+(s/def ::d/signature        (s/and string? ::non-blank-string))
 (s/def ::d/signatures       (s/coll-of ::d/signature))
 (s/def ::d/to-sign          string?)
 (s/def ::d/parsed-token     (s/keys :req [::d/payload-part ::d/timestamp
@@ -40,15 +43,16 @@
 (s/def ::d/fallbacks        (s/coll-of ::d/fallback))
 (s/def ::d/config           (s/keys :req [::d/verify-keys
                                           ::d/salt
-                                          ::d/algorithm
-                                          ::d/signer-type]
+                                          ::d/algorithm]
                                     :opt [::d/key-derivation
-                                          ::d/fallbacks]))
+                                          ::d/fallbacks
+                                          ::d/signer-type]))
 (s/def ::d/verify-input     (s/merge ::d/config
                                      (s/keys :req [::d/token]
                                              :opt [::d/max-size
                                                    ::d/max-age])))
-(s/def ::d/sign-config      (s/keys :req [::d/sign-key
+(s/def ::d/sign-config      (s/keys :req [(or ::d/sign-key
+                                              ::d/private-key)
                                           ::d/salt
                                           ::d/algorithm
                                           ::d/signer-type]

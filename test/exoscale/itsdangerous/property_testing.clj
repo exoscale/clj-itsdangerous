@@ -17,7 +17,9 @@
   (prop/for-all
    [config (s/gen ::danger/config)
     payload gen/string]
-   (let [sign-config (assoc config ::danger/sign-key (first (::danger/verify-keys config)))
+   (let [sign-config (assoc config ::danger/sign-key (first (::danger/verify-keys config))
+                                   ::danger/signer-type (or (::danger/signer-type config)
+                                                            ::danger/timestamp-signer))
          token (danger/sign sign-config payload)]
      (= payload (danger/verify config token)))))
 
@@ -26,7 +28,9 @@
   (prop/for-all
    [config  (s/gen ::danger/config)
     payload gen/string]
-   (let [sign-config (assoc config ::danger/sign-key (first (::danger/verify-keys config)))
+   (let [sign-config (assoc config ::danger/sign-key (first (::danger/verify-keys config))
+                                   ::danger/signer-type (or (::danger/signer-type config)
+                                                            ::danger/timestamp-signer))
          token (danger/sign sign-config payload 0)]
      (= [:exoscale.ex/forbidden "token validity expired"]
         (try
@@ -39,7 +43,9 @@
   (prop/for-all
    [config  (s/gen ::danger/config)
     payload gen/string]
-   (let [sign-config (assoc config ::danger/sign-key (first (::danger/verify-keys config)))
+   (let [sign-config (assoc config ::danger/sign-key (first (::danger/verify-keys config))
+                                   ::danger/signer-type (or (::danger/signer-type config)
+                                                            ::danger/timestamp-signer))
          token (danger/sign sign-config payload 0)]
      (= [:exoscale.ex/forbidden "token validity expired"]
         (try
@@ -50,10 +56,12 @@
 (defspec token-signature-is-enforced-sign-key-variant
   10000
   (prop/for-all
-   [base        (s/gen ::danger/config)
+   [base     (s/gen ::danger/config)
     sign-key (s/gen ::danger/sign-key)
-    payload     gen/string]
-   (let [good-config (assoc base ::danger/verify-keys [sign-key])
+    payload  gen/string]
+   (let [good-config (assoc base ::danger/verify-keys [sign-key]
+                                 ::danger/signer-type (or (::danger/signer-type base)
+                                                          ::danger/timestamp-signer))
          bad-config  (assoc base ::danger/verify-keys [(str sign-key "f")])
          sign-config (assoc good-config ::danger/sign-key (first (::danger/verify-keys good-config)))
          token       (danger/sign sign-config payload)]
@@ -68,7 +76,9 @@
   (prop/for-all
    [config  (s/gen ::danger/config)
     payload gen/string]
-   (let [sign-config (assoc config ::danger/sign-key (first (::danger/verify-keys config)))
+   (let [sign-config (assoc config ::danger/sign-key (first (::danger/verify-keys config))
+                                   ::danger/signer-type (or (::danger/signer-type config)
+                                                            ::danger/timestamp-signer))
          token (danger/sign sign-config payload)]
      (= [:exoscale.ex/forbidden "invalid signature"]
         (try
@@ -85,9 +95,13 @@
                            ::danger/hmac-sha1 ::danger/hmac-sha256
                            ::danger/hmac-sha256 ::danger/hmac-sha512
                            ::danger/hmac-sha512 ::danger/hmac-sha1)
-         sign-config (assoc config ::danger/sign-key (first (::danger/verify-keys config)))
+         sign-config (assoc config ::danger/sign-key (first (::danger/verify-keys config))
+                                   ::danger/signer-type (or (::danger/signer-type config)
+                                                            ::danger/timestamp-signer))
          token (danger/sign sign-config payload)
          verify-config (assoc config
                               ::danger/algorithm other-algorithm
-                              ::danger/fallbacks [{::danger/algorithm (::danger/algorithm config)}])]
+                              ::danger/fallbacks [{::danger/algorithm (::danger/algorithm config)}]
+                              ::danger/signer-type (or (::danger/signer-type config)
+                                                       ::danger/timestamp-signer))]
      (= payload (danger/verify verify-config token)))))
