@@ -4,7 +4,7 @@
 (def lib 'exoscale/itsdangerous)
 
 ;; ALSO UPDATE POM!!!! TODO ... automate via a VERSION FILE
-(def version "0.2.0")
+(def version "0.1.3")
 
 (def class-dir "target/classes")
 (def jar-file (format "target/%s-%s.jar" (name lib) version))
