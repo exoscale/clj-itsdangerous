@@ -168,7 +168,7 @@
    (when (nil? (::signer-type input-config)) (prn "FIX THIS" input-config))
    (let [defaults {::algorithm ::hmac-sha1
                    ::key-derivation ::django-concat
-                   ::signer-type ::timestamp-signer
+                   ::signer-type ::url-safe-timed-serializer
                    ::timestamp (epoch)}
          config (merge defaults (drop-nil-values input-config))
          {::keys [signer-type timestamp payload sign-key]} config]
@@ -236,7 +236,7 @@
   ([input-config]
    (let [defaults {::algorithm ::hmac-sha1
                    ::key-derivation ::django-concat
-                   ::signer-type ::timestamp-signer
+                   ::signer-type ::url-safe-timed-serializer
                    ::max-size default-max-size}
          config (merge defaults (drop-nil-values input-config))
          {::keys [token signer-type max-age max-size]} config]
