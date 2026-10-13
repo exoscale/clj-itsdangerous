@@ -71,7 +71,7 @@ jobs:
       - test
     if: ${{ github.ref == 'refs/heads/main'
       || github.ref == 'refs/heads/master' 
-      || startsWith(github.ref, 'refs/SNAPSHOT') }}
+      || startsWith(github.ref, 'refs/heads/SNAPSHOT') }}
 
     runs-on: ubuntu-latest
 
