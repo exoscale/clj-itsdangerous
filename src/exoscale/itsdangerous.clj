@@ -165,14 +165,14 @@
    `::key-derivation` defaults to `::django-concat`.
    `::timestamp` defaults to the UNIX epoch in seconds."
   ([input-config]
-   (when (nil? (::signer-type input-config)) (prn "FIX THIS" input-config))
    (let [defaults {::algorithm ::hmac-sha1
                    ::key-derivation ::django-concat
                    ::signer-type ::timestamp-signer
                    ::timestamp (epoch)}
          config (merge defaults (drop-nil-values input-config))
-         {::keys [signer-type timestamp payload sign-key]} config]
-     (when (nil? (::signer-type config)) (prn "WTAF" config))
+         {::keys [signer-type timestamp payload private-key sign-key]} config
+         signing-key (or sign-key private-key)]
+     (when (nil? signing-key) (prn "INPUT:" input-config " MERGED:" config))
      (ex/assert-spec-valid ::sign-input config)
      (let [to-sign (case signer-type
                      ::signer
@@ -188,7 +188,7 @@
                      (str (url-safe-payload-part payload)
                           "."
                           (codec/int->b64 timestamp)))]
-       (str to-sign "." (signature-for config to-sign sign-key)))))
+       (str to-sign "." (signature-for config to-sign signing-key)))))
   ([config payload]
    (sign (assoc config ::payload payload)))
   ([config payload timestamp]
