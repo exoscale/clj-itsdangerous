@@ -5,7 +5,7 @@
   <groupId>exoscale</groupId>
   <artifactId>itsdangerous</artifactId>
     <!-- UPDATE THIS version AND the one in build.clj ... TODO automate -->
-  <version>0.1.4</version>
+  <version>0.1.5-SNAPSHOT</version>
   <name>itsdangerous</name>
   <licenses>
     <license>
